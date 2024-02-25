@@ -36,6 +36,8 @@ import dji.sdk.media.MediaManager;
 
 
 public class UploadForegroundService extends Service {
+    public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
+    public static final String ACTION_STOP_LOADING = "com.example.action.STOP_LOADING";
 
     private int totalFiles = 0; // Total number of files to download
     private int successfulUploads = 0; // Counter for successful uploads
@@ -48,6 +50,7 @@ public class UploadForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this.getApplicationContext());
         notificationManager = getSystemService(NotificationManager.class);
         createNotificationChannel();
@@ -64,6 +67,8 @@ public class UploadForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Intent startLoadingIntent = new Intent(ACTION_START_LOADING);
+        sendBroadcast(startLoadingIntent);
         // Call updateNotification at the beginning to setup foreground service
         updateNotification("Service Started");
         initMediaManager();
@@ -235,6 +240,8 @@ public class UploadForegroundService extends Service {
                                 if (successfulUploads == totalFiles) {
                                     // All files have been uploaded
                                     updateNotificationProgressBar("Upload complete: " + successfulUploads + " files uploaded.", 0, 0);
+                                    Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
+                                    sendBroadcast(stopLoadingIntent);
                                     stopSelf(); // Call this to stop the service
                                 }
 

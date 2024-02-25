@@ -1,9 +1,13 @@
 package com.dji.ImportSDKDemo;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -66,11 +70,14 @@ public class ClassificationActivity extends AppCompatActivity {
     private FileListAdapter mListAdapter;
     private final List<MediaFile> mediaFileList = new ArrayList<>();
 
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
+
+        progressBar = findViewById(R.id.progressBarFreez);
 
         // Initialize fusedLocationClient and other components
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -214,10 +221,10 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void getFileList() {
-        runOnUiThread(() -> mProgressBar.setVisibility(View.GONE));
+        runOnUiThread(() -> mProgressBar.setVisibility(View.INVISIBLE));
         if (mMediaManager != null) {
             mMediaManager.refreshFileListOfStorageLocation(SettingsDefinitions.StorageLocation.SDCARD, djiError -> runOnUiThread(() -> {
-                mProgressBar.setVisibility(View.GONE); // Ensure UI update code here is on UI thread
+                mProgressBar.setVisibility(View.INVISIBLE); // Ensure UI update code here is on UI thread
                 if (null == djiError) {
                     // Successfully refreshed the media list
                     List<MediaFile> newMediaFiles = mMediaManager.getSDCardFileListSnapshot();
@@ -440,6 +447,47 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     }
 
+    private final BroadcastReceiver loadingReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null) {
+                switch (intent.getAction()) {
+                    case UploadForegroundService.ACTION_START_LOADING:
+                        showLoading();
+                        break;
+                    case UploadForegroundService.ACTION_STOP_LOADING:
+                        hideLoading();
+                        updateAdapterWithNewData(mediaFileList);
+                        break;
+                }
+            }
+        }
+    };
+
+    private void showLoading() {
+        progressBar.setVisibility(View.VISIBLE);
+    }
+
+    private void hideLoading() {
+        progressBar.setVisibility(View.INVISIBLE);
+    }
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    @Override
+    protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(UploadForegroundService.ACTION_START_LOADING);
+        filter.addAction(UploadForegroundService.ACTION_STOP_LOADING);
+        registerReceiver(loadingReceiver, filter);
+    }
+
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(loadingReceiver);
+    }
 
     @Override
     protected void onResume() {
@@ -451,16 +499,6 @@ public class ClassificationActivity extends AppCompatActivity {
         super.onPause();
     }
 
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-    }
 
     @Override
     protected void onDestroy() {

@@ -48,7 +48,10 @@
             android:exported="false" />
         <activity
             android:name=".ClassificationActivity"
-            android:exported="false" /> <!-- DJI SDK -->
+            android:exported="true" />
+
+
+        <!-- DJI SDK -->
         <uses-library android:name="com.android.future.usb.accessory" />
         <uses-library
             android:name="org.apache.http.legacy"
@@ -83,7 +86,6 @@
         <activity
             android:name=".GoFlyActivity"
             android:screenOrientation="landscape" />
-
         <service android:name=".UploadForegroundService" />
 
     </application>
