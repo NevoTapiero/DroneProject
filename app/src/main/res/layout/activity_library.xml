@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center">
+
+    <Button
+        android:id="@+id/btn_common_rust"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Common Rust" />
+
+    <Button
+        android:id="@+id/btn_healthy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Healthy" />
+
+    <Button
+        android:id="@+id/btn_infected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Infected" />
+
+    <Button
+        android:id="@+id/btn_northern_leaf_blight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Northern Leaf Blight" />
+
+    <Button
+        android:id="@+id/btn_gray_leaf_spots"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Gray Leaf Spots" />
+
+    <Button
+        android:id="@+id/btn_unclassified"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Unclassified" />
+</LinearLayout>

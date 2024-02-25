@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "603414430717",
+    "project_id": "msdk-app-3a2d5",
+    "storage_bucket": "msdk-app-3a2d5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:603414430717:android:98cfe793f0cd395ed64f94",
+        "android_client_info": {
+          "package_name": "com.dji.ImportSDKDemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxZzGvZsx1uqPzH8Jq7EENJ131SiZbpsU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
