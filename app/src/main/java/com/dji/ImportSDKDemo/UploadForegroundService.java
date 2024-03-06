@@ -4,7 +4,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -59,19 +58,22 @@ public class UploadForegroundService extends Service {
         if (!destDir.exists()) {
             boolean success = destDir.mkdirs(); // Create the directory if it doesn't exist
             if (success) {
-                updateNotification("Created destDir:" + destDir.getAbsolutePath());
-            } else
-                updateNotification("Directory Creation" + "Failed to create directory:" + destDir.getAbsolutePath());
+                //updateNotification("Created destDir:" + destDir.getAbsolutePath());
+            } else;
+                //updateNotification("Directory Creation" + "Failed to create directory:" + destDir.getAbsolutePath());
         }
     }
 
     @Override
+
+
     public int onStartCommand(Intent intent, int flags, int startId) {
         Intent startLoadingIntent = new Intent(ACTION_START_LOADING);
         sendBroadcast(startLoadingIntent);
         // Call updateNotification at the beginning to setup foreground service
         updateNotification("Service Started");
         initMediaManager();
+
         return START_NOT_STICKY;
     }
 
@@ -84,7 +86,7 @@ public class UploadForegroundService extends Service {
 
     private void initMediaManager() {
         if (CameraHandler.getProductInstance() == null) {
-            updateNotification("Drone Disconnected, please reconnect the drone and try again");
+            //updateNotification("Drone Disconnected, please reconnect the drone and try again");
         } else {
             if (CameraHandler.getCameraInstance() != null && CameraHandler.getCameraInstance().isMediaDownloadModeSupported()) {
                 MediaManager mMediaManager = CameraHandler.getCameraInstance().getMediaManager();
@@ -94,7 +96,7 @@ public class UploadForegroundService extends Service {
                     downloadAllImageFiles(newMediaFiles);
                 }
             } else {
-                updateNotification("Media Download Mode not Supported");
+                //updateNotification("Media Download Mode not Supported");
             }
         }
     }
@@ -104,28 +106,28 @@ public class UploadForegroundService extends Service {
         switch (state) {
             case SYNCING:
                 // The file list is being synchronized. You might want to show a loading indicator.
-                updateNotification("Syncing media file list...");
+                //updateNotification("Syncing media file list...");
 
                 break;
             case INCOMPLETE:
                 // The file list has not been completely synchronized.
-                updateNotification("Media file list incomplete.");
+                //updateNotification("Media file list incomplete.");
 
                 break;
             case UP_TO_DATE:
                 // The file list is complete. You can now access the full list of media files.
-                updateNotification("Media file list synchronized.");
+                //updateNotification("Media file list synchronized.");
 
                 break;
             case DELETING:
                 // Files are being deleted from the list.
-                updateNotification("Deleting media files...");
+                //updateNotification("Deleting media files...");
 
                 break;
             case UNKNOWN:
             default:
                 // Handle any unknown states.
-                updateNotification("Unknown media file list state.");
+                //updateNotification("Unknown media file list state.");
                 break;
         }
     };
@@ -173,7 +175,7 @@ public class UploadForegroundService extends Service {
 
                 @Override
                 public void onFailure(DJIError error) {
-                    updateNotification("Download Failed:" + error.getDescription());
+                    //updateNotification("Download Failed:" + error.getDescription());
                 }
             });
         }
@@ -189,7 +191,7 @@ public class UploadForegroundService extends Service {
                 }
             }
         } else {
-            updateNotification("No files found in the directory.");
+            //updateNotification("No files found in the directory.");
         }
     }
 
@@ -223,32 +225,37 @@ public class UploadForegroundService extends Service {
                                             try {
                                                 boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
                                                 if (deleted) {
-                                                    updateNotification("Image deleted from device");
+                                                    //updateNotification("Image deleted from device");
                                                 } else {
-                                                    updateNotification("Failed to delete image from device");
+                                                    //updateNotification("Failed to delete image from device");
                                                 }
                                             } catch (Exception e) {
-                                                updateNotification("Error deleting image: " + e.getMessage());
+                                                //updateNotification("Error deleting image: " + e.getMessage());
                                             }
                                         })
-                                        .addOnFailureListener(e -> updateNotification("Error adding document: " + e.getMessage()));
+                                        .addOnFailureListener(e ->{}/* updateNotification("Error adding document: " + e.getMessage())*/);
 
                                 // After each file download completion
                                 successfulUploads++; // or increase another counter if download fails
                                 int progress = successfulUploads; // Or successfulUploads + failedUploads if tracking failures
-                                updateNotificationProgressBar(successfulUploads + " of " + totalFiles + " files uploaded", progress, totalFiles);
+                                updateProgress(progress);
                                 if (successfulUploads == totalFiles) {
                                     // All files have been uploaded
-                                    updateNotificationProgressBar("Upload complete: " + successfulUploads + " files uploaded.", 0, 0);
                                     Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
                                     sendBroadcast(stopLoadingIntent);
                                     stopSelf(); // Call this to stop the service
                                 }
 
                             })
-                            .addOnFailureListener(e -> updateNotification("Image upload failed: " + e.getMessage()));
+                            .addOnFailureListener(e -> {}/*updateNotification("Image upload failed: " + e.getMessage())*/);
                 }));
 
+    }
+
+    private void updateProgress(int progress) {
+        Intent progressUpdate = new Intent("ACTION_PROGRESS_UPDATE");
+        progressUpdate.putExtra("progress", progress);
+        sendBroadcast(progressUpdate);
     }
 
 
@@ -262,19 +269,6 @@ public class UploadForegroundService extends Service {
                 .build();
         // Start foreground with the updated notification
         startForeground(1, notification);
-    }
-
-    private void updateNotificationProgressBar(String message, int progress, int maxProgress) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Upload Status")
-                .setContentText(message)
-                .setSmallIcon(R.drawable.ic_download)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setOnlyAlertOnce(true) // To avoid sound and vibration on every update
-                .setProgress(maxProgress, progress, false); // Add this line to set progress bar
-
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.notify(1, builder.build());
     }
 
 

@@ -77,7 +77,9 @@ public class ClassificationActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
 
-        progressBar = findViewById(R.id.progressBarFreez);
+        progressBar = findViewById(R.id.downloadProgressBar);
+
+
 
         // Initialize fusedLocationClient and other components
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -185,7 +187,8 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void proceedWithNotification() {
-        showToast("" + mediaFileList.size());
+        showToast(String.valueOf(mediaFileList.size()));
+        progressBar.setMax(mediaFileList.size());
         startUploadService();
     }
 
@@ -464,6 +467,18 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     };
 
+
+    // Initialize the BroadcastReceiver of the downloadBar
+    private final BroadcastReceiver progressUpdateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Update progress bar
+            int progress = intent.getIntExtra("progress", 0);
+            progressBar.setProgress(progress);
+        }
+    };
+
+
     private void showLoading() {
         progressBar.setVisibility(View.VISIBLE);
     }
@@ -489,14 +504,19 @@ public class ClassificationActivity extends AppCompatActivity {
         unregisterReceiver(loadingReceiver);
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onResume() {
         super.onResume();
+        // Register receiver with an intent filter
+        registerReceiver(progressUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE"));
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        // Unregister receiver
+        unregisterReceiver(progressUpdateReceiver);
     }
 
 
