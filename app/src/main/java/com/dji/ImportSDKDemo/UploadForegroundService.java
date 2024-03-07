@@ -45,7 +45,8 @@ public class UploadForegroundService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private File destDir; // Declare here, but don't initialize yet
     private NotificationManager notificationManager;
-
+    // Initialize cacheDir here, where the context is ready
+    private File cacheDir;
     @Override
     public void onCreate() {
         super.onCreate();
@@ -55,6 +56,7 @@ public class UploadForegroundService extends Service {
         createNotificationChannel();
         // Initialize destDir here, where the context is ready
         destDir = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "MediaManagerDemo");
+        cacheDir = new File(getExternalFilesDir(null), "DJI/com.dji.ImportSDKDemo/CACHE_IMAGE");
         if (!destDir.exists()) {
             boolean success = destDir.mkdirs(); // Create the directory if it doesn't exist
             if (success) {
@@ -71,7 +73,7 @@ public class UploadForegroundService extends Service {
         Intent startLoadingIntent = new Intent(ACTION_START_LOADING);
         sendBroadcast(startLoadingIntent);
         // Call updateNotification at the beginning to setup foreground service
-        updateNotification("Service Started");
+        updateNotification();
         initMediaManager();
 
         return START_NOT_STICKY;
@@ -141,7 +143,19 @@ public class UploadForegroundService extends Service {
                     downloadMediaFile(mediaFile);
                 }
             }
+            if (successfulUploads == totalFiles) {
+                // All files have been uploaded
+                Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
+                sendBroadcast(stopLoadingIntent);
+                stopSelf(); // Call this to stop the service
+            }
+        } else {
+            //no files
+            Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
+            sendBroadcast(stopLoadingIntent);
+            stopSelf(); // Call this to stop the service
         }
+
     }
 
 
@@ -170,7 +184,7 @@ public class UploadForegroundService extends Service {
                 @Override
                 public void onSuccess(String filePath) {
                     // Upload to Firebase
-                    uploadAllImageFiles();
+                    uploadAllImageFiles(destDir);
                 }
 
                 @Override
@@ -182,7 +196,24 @@ public class UploadForegroundService extends Service {
     }
 
 
-    private void uploadAllImageFiles() {
+
+
+    private void uploadAllImageFiles(File destDir) {
+        File[] files = destDir.listFiles();
+        File[] cacheFiles = cacheDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().endsWith(".jpg")) {
+                    upLoadImages(Uri.fromFile(file));
+                }
+            }
+        }
+        else if (cacheFiles != null) {
+            uploadAllCacheImageFiles(cacheDir);
+        }
+    }
+
+    private void uploadAllCacheImageFiles(File destDir) {
         File[] files = destDir.listFiles();
         if (files != null) {
             for (File file : files) {
@@ -190,11 +221,9 @@ public class UploadForegroundService extends Service {
                     upLoadImages(Uri.fromFile(file));
                 }
             }
-        } else {
-            //updateNotification("No files found in the directory.");
         }
-    }
 
+    }
 
     private void upLoadImages(Uri imageUri) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
@@ -239,12 +268,6 @@ public class UploadForegroundService extends Service {
                                 successfulUploads++; // or increase another counter if download fails
                                 int progress = successfulUploads; // Or successfulUploads + failedUploads if tracking failures
                                 updateProgress(progress);
-                                if (successfulUploads == totalFiles) {
-                                    // All files have been uploaded
-                                    Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
-                                    sendBroadcast(stopLoadingIntent);
-                                    stopSelf(); // Call this to stop the service
-                                }
 
                             })
                             .addOnFailureListener(e -> {}/*updateNotification("Image upload failed: " + e.getMessage())*/);
@@ -259,10 +282,10 @@ public class UploadForegroundService extends Service {
     }
 
 
-    private void updateNotification(String message) {
+    private void updateNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Upload Status")
-                .setContentText(message)
+                .setContentText("Service Started")
                 .setSmallIcon(R.drawable.ic_notification)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setOnlyAlertOnce(true) // To avoid sound and vibration on every update
