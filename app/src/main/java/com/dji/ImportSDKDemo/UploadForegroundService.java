@@ -67,8 +67,6 @@ public class UploadForegroundService extends Service {
     }
 
     @Override
-
-
     public int onStartCommand(Intent intent, int flags, int startId) {
         Intent startLoadingIntent = new Intent(ACTION_START_LOADING);
         sendBroadcast(startLoadingIntent);
@@ -161,7 +159,7 @@ public class UploadForegroundService extends Service {
 
     private void downloadMediaFile(MediaFile mediaFile) {
         if (mediaFile != null && mediaFile.getMediaType() == MediaFile.MediaType.JPEG) { // Check if it's an image
-            mediaFile.fetchFileData(destDir, null, new DownloadListener<String>() {
+            mediaFile.fetchFileData(destDir, "MediaManagerDemo", new DownloadListener<String>() {
                 @Override
                 public void onStart() {
                 }
