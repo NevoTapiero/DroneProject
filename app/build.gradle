@@ -42,16 +42,16 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.firebase:firebase-firestore:24.10.2'
+    implementation 'com.google.firebase:firebase-firestore:24.10.3'
     implementation 'com.google.firebase:firebase-storage:20.3.0'
     implementation 'com.google.firebase:firebase-functions:20.4.0'
     implementation('com.dji:dji-sdk:4.17')
     implementation 'androidx.navigation:navigation-fragment:2.7.7'
     implementation 'androidx.navigation:navigation-ui:2.7.7'
     implementation 'com.google.firebase:firebase-storage:20.3.0'
-    implementation 'com.google.firebase:firebase-firestore:24.10.2'
-    implementation 'com.google.android.gms:play-services-location:21.1.0'
-    implementation 'com.google.firebase:firebase-database:20.3.0'
+    implementation 'com.google.firebase:firebase-firestore:24.10.3'
+    implementation 'com.google.android.gms:play-services-location:21.2.0'
+    implementation 'com.google.firebase:firebase-database:20.3.1'
     compileOnly('com.dji:dji-sdk-provided:4.17')
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'

@@ -16,6 +16,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -71,6 +72,8 @@ public class ClassificationActivity extends AppCompatActivity {
     private final List<MediaFile> mediaFileList = new ArrayList<>();
 
     private ProgressBar progressBar;
+    private ProgressBar progressBarPerImage;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,7 +81,7 @@ public class ClassificationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_classification);
 
         progressBar = findViewById(R.id.downloadProgressBar);
-
+        progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
 
 
         // Initialize fusedLocationClient and other components
@@ -94,7 +97,11 @@ public class ClassificationActivity extends AppCompatActivity {
 
         initMediaManager();
         initializeUIComponents();
+        registerSDK();
+    }
 
+
+    private void registerSDK() {
         DJISDKManager.getInstance().registerApp(ClassificationActivity.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
             @Override
             public void onRegister(DJIError djiError) {
@@ -106,6 +113,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 } else {
                     // SDK registration failed
                     showToast("Register sdk fails, please check the bundle id and network connection!");
+
                 }
                 Log.v(TAG, djiError.getDescription());
             }
@@ -155,8 +163,6 @@ public class ClassificationActivity extends AppCompatActivity {
             }
         });
     }
-
-
 
     private void initializeUIComponents() {
         Button uploadButton = findViewById(R.id.uploadButton);
@@ -215,7 +221,17 @@ public class ClassificationActivity extends AppCompatActivity {
                 mMediaManager = CameraHandler.getCameraInstance().getMediaManager();
                 if (null != mMediaManager) {
                     mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
-                        getFileList();
+
+                    // Set camera mode to MEDIA_DOWNLOAD before fetching file list
+                    CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, error -> {
+                        if (error == null) {
+                            // Camera mode is set, now proceed to refresh file list
+                            getFileList();
+                        } else {
+                            // Handle error setting camera mode
+                            showToast("Set cameraMode failed: " + error.getDescription());
+                        }
+                    });
                 }
             } else {
                 showToast("Media Download Mode not Supported");
@@ -257,6 +273,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 });
                 break;
             case INCOMPLETE:
+                mediaFileList.clear();
                 // The file list has not been completely synchronized.
                 runOnUiThread(() -> {
                     // Update UI to indicate the file list is incomplete.
@@ -297,6 +314,12 @@ public class ClassificationActivity extends AppCompatActivity {
             // Update UI
             mListAdapter.notifyItemRangeRemoved(0, size);
         });
+
+    }
+
+    // This method could be called when a reconnection event is detected
+    private void onProductReconnected() {
+        getFileList();
 
     }
 
@@ -459,14 +482,34 @@ public class ClassificationActivity extends AppCompatActivity {
                         showLoading();
                         break;
                     case UploadForegroundService.ACTION_STOP_LOADING:
+                        String message = intent.getStringExtra("message");
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();
-                        updateAdapterWithNewData(mediaFileList);
-                        break;
+                        initMediaManager();
+                    break;
                 }
             }
         }
     };
 
+
+    // Initialize the BroadcastReceiver of the downloadBar per image
+    private final BroadcastReceiver loadingReceiverForPerImage = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null) {
+                switch (intent.getAction()) {
+                    case UploadForegroundService.ACTION_START_LOADING_PER_IMAGE:
+                        showLoadingPerImage();
+                        break;
+                    case UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE:
+                        hideLoadingPerImage();
+                        //updateAdapterWithNewData(mediaFileList);
+                        break;
+                }
+            }
+        }
+    };
 
     // Initialize the BroadcastReceiver of the downloadBar
     private final BroadcastReceiver progressUpdateReceiver = new BroadcastReceiver() {
@@ -474,49 +517,109 @@ public class ClassificationActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             // Update progress bar
             int progress = intent.getIntExtra("progress", 0);
+            String message = intent.getStringExtra("message");
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
             progressBar.setProgress(progress);
         }
     };
 
 
+    // Initialize the BroadcastReceiver of the downloadBar per image
+    private final BroadcastReceiver progressPerImageUpdateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Update progress bar
+            int progress = intent.getIntExtra("progress", 0);
+            progressBarPerImage.setProgress(progress);
+        }
+    };
+
+
+    // Initialize the BroadcastReceiver of notifying fetching tries
+    private final BroadcastReceiver notifyFilesReadyReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+         if (intent.getAction() != null) {
+             if (intent.getAction().equals(UploadForegroundService.ACTION_NOTIFY_TRIES)) {
+                 String message = intent.getStringExtra("message");
+                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+             }
+         }
+        }
+    };
+
     private void showLoading() {
         progressBar.setVisibility(View.VISIBLE);
+        setScreenTouchable(true);
     }
 
     private void hideLoading() {
         progressBar.setVisibility(View.INVISIBLE);
+        setScreenTouchable(false);
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void showLoadingPerImage() {
+        progressBarPerImage.setVisibility(View.VISIBLE);
+    }
+
+    private void hideLoadingPerImage() {
+        progressBarPerImage.setVisibility(View.INVISIBLE);
+    }
+
+    public void setScreenTouchable(boolean touchable) {
+        FrameLayout overlay = findViewById(R.id.overlay);
+        if (touchable) {
+            overlay.setVisibility(View.GONE); // Hide overlay to enable touch events
+        } else {
+            overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
+        }
+    }
+
+
     @Override
     protected void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(UploadForegroundService.ACTION_START_LOADING);
-        filter.addAction(UploadForegroundService.ACTION_STOP_LOADING);
-        registerReceiver(loadingReceiver, filter);
     }
-
 
     @Override
     protected void onStop() {
         super.onStop();
-        unregisterReceiver(loadingReceiver);
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onResume() {
         super.onResume();
-        // Register receiver with an intent filter
+
+        // Initialize and set up all IntentFilters here
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(UploadForegroundService.ACTION_START_LOADING);
+        filter.addAction(UploadForegroundService.ACTION_STOP_LOADING);
+        registerReceiver(loadingReceiver, filter);
+
+        IntentFilter notifyFilesReadyFilter = new IntentFilter();
+        notifyFilesReadyFilter.addAction(UploadForegroundService.ACTION_NOTIFY_TRIES);
+        registerReceiver(notifyFilesReadyReceiver, notifyFilesReadyFilter);
+
+        IntentFilter filterForPerImage = new IntentFilter();
+        filterForPerImage.addAction(UploadForegroundService.ACTION_START_LOADING_PER_IMAGE);
+        filterForPerImage.addAction(UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE);
+        registerReceiver(loadingReceiverForPerImage, filterForPerImage);
+
         registerReceiver(progressUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE"));
+        registerReceiver(progressPerImageUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE_PER_IMAGE"));
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        // Unregister receiver
+
+        // Unregister all receivers here
+        unregisterReceiver(loadingReceiver);
+        unregisterReceiver(notifyFilesReadyReceiver);
+        unregisterReceiver(loadingReceiverForPerImage);
         unregisterReceiver(progressUpdateReceiver);
+        unregisterReceiver(progressPerImageUpdateReceiver);
     }
 
 
