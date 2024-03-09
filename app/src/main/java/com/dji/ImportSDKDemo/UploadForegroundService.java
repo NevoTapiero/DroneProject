@@ -287,10 +287,10 @@ public class UploadForegroundService extends Service {
                 public void onSuccess(String filePath) {
                     Intent stopLoadingIntentPerImage = new Intent(ACTION_STOP_LOADING_PER_IMAGE);
                     sendBroadcast(stopLoadingIntentPerImage);
-                    /*// Upload to Firebase
+                    // Upload to Firebase
                     if (Objects.requireNonNull(destDir.listFiles()).length > 0) {
                         uploadAllImageFiles(destDir, mediaFileListToDelete);
-                    }*/
+                    }
                     if (Objects.requireNonNull(cacheDir.listFiles()).length > 0){
                         moveFilesLocation();
                     }
