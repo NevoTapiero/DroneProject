@@ -48,6 +48,8 @@ public class UploadForegroundService extends Service {
     public static final String ACTION_NOTIFY_TRIES = "com.example.action.NOTIFY_TRIES";
     public static final String ACTION_START_LOADING_PER_IMAGE = "com.example.action.ACTION_START_LOADING_PER_IMAGE";
     public static final String ACTION_STOP_LOADING_PER_IMAGE = "com.example.action.ACTION_STOP_LOADING_PER_IMAGE";
+    public static String batchId = null;
+
     private List<MediaFile> mediaFileList;
     private final MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
 
@@ -85,7 +87,8 @@ public class UploadForegroundService extends Service {
         // Call updateNotification at the beginning to setup foreground service
         updateNotification();
         getFileList();
-        //initMediaManager();
+
+        batchId =  generateBatchId();
 
         return START_NOT_STICKY;
     }
@@ -97,7 +100,17 @@ public class UploadForegroundService extends Service {
     }
 
 
+    public static String generateBatchId() {
+        // Define the date format
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
 
+        // Get the current date and time
+        Date now = new Date();
+
+        // Format the current date and time according to the specified format
+
+        return dateFormat.format(now);
+    }
 
     private void getFileList() {
         mMediaManager = Objects.requireNonNull(CameraHandler.getCameraInstance()).getMediaManager();
@@ -315,7 +328,8 @@ public class UploadForegroundService extends Service {
         if (files != null) {
             for (File file : files) {
                 if (file.isFile() && file.getName().endsWith(".jpg")) {
-                    upLoadImages(Uri.fromFile(file), fileToDelete, imagePath = file.getPath(), file);
+                    imagePath = file.getPath();
+                    upLoadImages(Uri.fromFile(file), fileToDelete, imagePath, file);
                 }
             }
         }
@@ -357,7 +371,9 @@ public class UploadForegroundService extends Service {
                         docData.put("longitude", returnLocation.get("longitude"));
                     }
 
-                    FirebaseFirestore.getInstance().collection("unclassified").add(docData)
+
+
+                    FirebaseFirestore.getInstance().collection("unclassified").document(batchId).set(docData)
                             .addOnSuccessListener(documentReference -> {
                                 // Attempt to delete the image file after successful upload and Firestore document creation
                                 try {
