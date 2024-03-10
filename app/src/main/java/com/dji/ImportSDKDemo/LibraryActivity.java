@@ -1,9 +1,10 @@
 package com.dji.ImportSDKDemo;
-import androidx.appcompat.app.AppCompatActivity;
+
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class LibraryActivity extends AppCompatActivity {
 
@@ -21,47 +22,17 @@ public class LibraryActivity extends AppCompatActivity {
         Button btnUnclassified = findViewById(R.id.btn_unclassified);
 
         // Set click listeners for each button
-        btnCommonRust.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("Corn_common_rust/");
-            }
-        });
+        btnCommonRust.setOnClickListener(v -> navigateToCustomActivity("Corn_common_rust/"));
 
-        btnGrayLeafSpots.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("Corn_gray_leaf_spots/");
-            }
-        });
+        btnGrayLeafSpots.setOnClickListener(v -> navigateToCustomActivity("Corn_gray_leaf_spots/"));
 
-        btnHealthy.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("Corn_healthy/");
-            }
-        });
+        btnHealthy.setOnClickListener(v -> navigateToCustomActivity("Corn_healthy/"));
 
-        btnInfected.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("Corn_Infected/");
-            }
-        });
+        btnInfected.setOnClickListener(v -> navigateToCustomActivity("Corn_Infected/"));
 
-        btnNorthernLeafBlight.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("Corn_northern_leaf_blight/");
-            }
-        });
+        btnNorthernLeafBlight.setOnClickListener(v -> navigateToCustomActivity("Corn_northern_leaf_blight/"));
 
-        btnUnclassified.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                navigateToCustomActivity("unclassified/");
-            }
-        });
+        btnUnclassified.setOnClickListener(v -> navigateToCustomActivity("unclassified/"));
     }
 
     private void navigateToCustomActivity(String category) {

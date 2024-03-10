@@ -6,25 +6,29 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.support.media.ExifInterface;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.firebase.firestore.FieldValue;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.GpsDirectory;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
 import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -50,7 +54,6 @@ public class UploadForegroundService extends Service {
     private int successfulUploads = 0; // Counter for successful uploads
     int totalFiles;
     private static final String CHANNEL_ID = "ForegroundServiceChannel";
-    private FusedLocationProviderClient fusedLocationClient;
     private File destDir; // Declare here, but don't initialize yet
     private NotificationManager notificationManager;
     private File cacheDir;
@@ -59,7 +62,6 @@ public class UploadForegroundService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this.getApplicationContext());
         notificationManager = getSystemService(NotificationManager.class);
         createNotificationChannel();
 
@@ -260,7 +262,7 @@ public class UploadForegroundService extends Service {
         if (mediaFile != null && mediaFile.getMediaType() == MediaFile.MediaType.JPEG) { // Check if it's an image
             List<MediaFile> mediaFileListToDelete = new ArrayList<>();
             mediaFileListToDelete.add(mediaFile);
-            mediaFile.fetchFileData(destDir, mediaFile.getFileName(), new DownloadListener<String>() {
+        mediaFile.fetchFileData(destDir, mediaFile.getFileName(), new DownloadListener<String>() {
                 @Override
                 public void onStart() {
                     Intent startLoadingIntentPerImage = new Intent(ACTION_START_LOADING_PER_IMAGE);
@@ -309,10 +311,11 @@ public class UploadForegroundService extends Service {
 
     private void uploadAllImageFiles(File destDir, List<MediaFile> fileToDelete) {
         File[] files = destDir.listFiles();
+        String imagePath;
         if (files != null) {
             for (File file : files) {
                 if (file.isFile() && file.getName().endsWith(".jpg")) {
-                    upLoadImages(Uri.fromFile(file), fileToDelete);
+                    upLoadImages(Uri.fromFile(file), fileToDelete, imagePath = file.getPath(), file);
                 }
             }
         }
@@ -333,54 +336,55 @@ public class UploadForegroundService extends Service {
         }
     }
 
-    private void upLoadImages(Uri imageUri, List<MediaFile> file) {
+    private void upLoadImages(Uri imageUri, List<MediaFile> fileList, String imagePath, File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString() + ".jpg";
         StorageReference imageRef = storageRef.child("unclassified/" + imageName);
-
 
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
                     if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                         return;
                     }
+                     Map<String, Object> docData = new HashMap<>();
+                    docData.put("imageUrl", downloadUri.toString());
+                    docData.put("imageName", imageName);
+                    docData.put("timestamp", extractImageTime(imagePath));
 
-                    fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
-                                Map<String, Object> docData = new HashMap<>();
-                                docData.put("imageUrl", downloadUri.toString());
-                                docData.put("imageName", imageName);
-                                docData.put("timestamp", FieldValue.serverTimestamp());
+                    Map<String, Double> returnLocation = extractImageLocation(file);
+                    if (returnLocation != null) {
+                        docData.put("latitude", returnLocation.get("latitude"));
+                        docData.put("longitude", returnLocation.get("longitude"));
+                    }
 
-                                if (location != null) {
-                                    docData.put("latitude", location.getLatitude());
-                                    docData.put("longitude", location.getLongitude());
+                    FirebaseFirestore.getInstance().collection("unclassified").add(docData)
+                            .addOnSuccessListener(documentReference -> {
+                                // Attempt to delete the image file after successful upload and Firestore document creation
+                                try {
+                                    deleteImageFromDrone(fileList);
+                                    boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
+                                    if (deleted) {
+                                        //updateNotification("Image deleted from device");
+                                    } else {
+                                        //updateNotification("Failed to delete image from device");
+                                    }
+                                } catch (Exception e) {
+                                    //updateNotification("Error deleting image: " + e.getMessage());
                                 }
-
-                                FirebaseFirestore.getInstance().collection("unclassified").add(docData)
-                                        .addOnSuccessListener(documentReference -> {
-                                            // Attempt to delete the image file after successful upload and Firestore document creation
-                                            try {
-                                                deleteImageFromDrone(file);
-                                                boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
-                                                if (deleted) {
-                                                    //updateNotification("Image deleted from device");
-                                                } else {
-                                                    //updateNotification("Failed to delete image from device");
-                                                }
-                                            } catch (Exception e) {
-                                                //updateNotification("Error deleting image: " + e.getMessage());
-                                            }
-                                        })
-                                        .addOnFailureListener(e ->{}/* updateNotification("Error adding document: " + e.getMessage())*/);
-
-
                             })
-                            .addOnFailureListener(e -> {}/*updateNotification("Image upload failed: " + e.getMessage())*/);
+                            .addOnFailureListener(e ->{}/* updateNotification("Error adding document: " + e.getMessage())*/);
 
-                }));
+
+                })
+                        .addOnFailureListener(e -> {}/*updateNotification("Image upload failed: " + e.getMessage())*/));
+
+        updateSuccessfulUploads();
+    }
+
+    private void updateSuccessfulUploads(){
         // After each file download completion
         successfulUploads++; // or increase another counter if download fails
-        int progress = successfulUploads; // Or successfulUploads + failedUploads if tracking failures
+        int progress = successfulUploads;
         updateProgress(progress);
 
 
@@ -391,8 +395,59 @@ public class UploadForegroundService extends Service {
             sendBroadcast(stopLoadingIntent);
             stopSelf(); // Call this to stop the service
         }
-
     }
+
+
+    private Map<String, Double> extractImageLocation(File imageFile) {
+        Map<String, Double> returnLocation = new HashMap<>();
+        try {
+            Metadata metadata = ImageMetadataReader.readMetadata(imageFile);
+            GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
+
+            if (gpsDirectory != null) {
+                // Check if GPS info exists
+                if (gpsDirectory.containsTag(GpsDirectory.TAG_LATITUDE) && gpsDirectory.containsTag(GpsDirectory.TAG_LONGITUDE)) {
+                    // Retrieve the latitude and longitude values (might require conversion)
+                    double latitude = gpsDirectory.getGeoLocation().getLatitude();
+                    double longitude = gpsDirectory.getGeoLocation().getLongitude();
+                    returnLocation.put("latitude", latitude);
+                    returnLocation.put("longitude", longitude);
+
+                    return returnLocation;
+
+                } else {
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        return null;
+    }
+
+
+    /**
+     * Extracts the capture time of an image.
+     * @param imagePath The path to the image file.
+     * @return The capture time of the image, or null if not available.
+     */
+    private Date extractImageTime(String imagePath) {
+        try {
+            ExifInterface exif = new ExifInterface(imagePath);
+            String dateTimeString = exif.getAttribute(ExifInterface.TAG_DATETIME);
+            if (dateTimeString != null) {
+                // Parse the date time string according to the format
+                SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
+                return format.parse(dateTimeString);
+            }
+        } catch (IOException e) {
+            //
+        } catch (Exception e) { // Including parsing exceptions
+            //
+        }
+        return null;
+    }
+
 
     private void deleteImageFromDrone(List<MediaFile> mediaFileList) {
         mMediaManager.deleteFiles(mediaFileList, new CommonCallbacks.CompletionCallbackWithTwoParam<List<MediaFile>, DJICameraError>() {

@@ -17,8 +17,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
@@ -41,17 +40,14 @@
         android:theme="@style/Theme.ImportSDKDemo"
         tools:targetApi="31">
         <activity
-            android:name=".CustomActivity"
-            android:exported="false" />
-        <activity
             android:name=".LibraryActivity"
             android:exported="false" />
         <activity
+            android:name=".CustomActivity"
+            android:exported="false" />
+        <activity
             android:name=".ClassificationActivity"
-            android:exported="true" />
-
-
-        <!-- DJI SDK -->
+            android:exported="true" /> <!-- DJI SDK -->
         <uses-library android:name="com.android.future.usb.accessory" />
         <uses-library
             android:name="org.apache.http.legacy"
@@ -86,8 +82,8 @@
         <activity
             android:name=".GoFlyActivity"
             android:screenOrientation="landscape" />
-        <service android:name=".UploadForegroundService" />
 
+        <service android:name=".UploadForegroundService" />
     </application>
 
 </manifest>

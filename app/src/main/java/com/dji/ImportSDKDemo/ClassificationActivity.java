@@ -129,6 +129,7 @@ public class ClassificationActivity extends AppCompatActivity {
             public void onProductConnect(BaseProduct baseProduct) {
                 Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
                 showToast("Product Connected");
+                onProductReconnected();
             }
 
 

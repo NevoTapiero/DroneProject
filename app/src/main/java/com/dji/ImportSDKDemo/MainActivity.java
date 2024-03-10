@@ -48,6 +48,9 @@ import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 import dji.thirdparty.afinal.core.AsyncTask;
 
+//todo - documentation to the whole project
+//todo - uml (class diagram + usecase diagram + top down diagram)
+//todo - up to 15/3 sorting log in the app
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private static final String TAG = MainActivity.class.getName();
