@@ -36,7 +36,9 @@ import java.util.UUID;
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJICameraError;
 import dji.common.error.DJIError;
+import dji.common.product.Model;
 import dji.common.util.CommonCallbacks;
+import dji.sdk.base.BaseProduct;
 import dji.sdk.media.DownloadListener;
 import dji.sdk.media.MediaFile;
 import dji.sdk.media.MediaManager;
@@ -48,10 +50,9 @@ public class UploadForegroundService extends Service {
     public static final String ACTION_NOTIFY_TRIES = "com.example.action.NOTIFY_TRIES";
     public static final String ACTION_START_LOADING_PER_IMAGE = "com.example.action.ACTION_START_LOADING_PER_IMAGE";
     public static final String ACTION_STOP_LOADING_PER_IMAGE = "com.example.action.ACTION_STOP_LOADING_PER_IMAGE";
-    public static String batchId = null;
-
     private List<MediaFile> mediaFileList;
-    private final MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
+    private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
+    Boolean fromOnDestroy = false;
 
     private int successfulUploads = 0; // Counter for successful uploads
     int totalFiles;
@@ -74,9 +75,9 @@ public class UploadForegroundService extends Service {
         if (!destDir.exists()) {
             boolean success = destDir.mkdirs(); // Create the directory if it doesn't exist
             if (success) {
-                //updateNotification("Created destDir:" + destDir.getAbsolutePath());
-            } else;
-                //updateNotification("Directory Creation" + "Failed to create directory:" + destDir.getAbsolutePath());
+                showToastService("Created destDir:" + destDir.getAbsolutePath());
+            } else
+                showToastService("Failed to create directory:" + destDir.getAbsolutePath());
         }
     }
 
@@ -86,9 +87,9 @@ public class UploadForegroundService extends Service {
         sendBroadcast(startLoadingIntent);
         // Call updateNotification at the beginning to setup foreground service
         updateNotification();
-        getFileList();
 
-        batchId =  generateBatchId();
+        initMediaManager();
+
 
         return START_NOT_STICKY;
     }
@@ -112,26 +113,15 @@ public class UploadForegroundService extends Service {
         return dateFormat.format(now);
     }
 
-    private void getFileList() {
-        mMediaManager = Objects.requireNonNull(CameraHandler.getCameraInstance()).getMediaManager();
-        if (null != mMediaManager) {
-            // Add the file list state listener
-            mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
-
-            // Set camera mode to MEDIA_DOWNLOAD before fetching file list
-            CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, error -> {
-                if (error == null) {
-                    // Camera mode is set, now proceed to refresh file list
-                    refreshMediaFileList();
-                } else {
-                    // Handle error setting camera mode
-                    handleMediaManagerError("Set cameraMode failed: " + error.getDescription());
-                }
-            });
+    private void initMediaManager() {
+        BaseProduct product = CameraHandler.getProductInstance();
+        if (product != null) {
+            setCameraMode();
         } else {
             handleMediaManagerError("Drone Disconnected, please reconnect the drone and try again");
         }
     }
+
 
 
     private void refreshMediaFileList() {
@@ -143,24 +133,24 @@ public class UploadForegroundService extends Service {
             if (null == djiError) {
                 // Clear previous list if the current state is not INCOMPLETE
                 if (currentFileListState != MediaManager.FileListState.INCOMPLETE) {
-                    mediaFileList.clear();
+                    if (mediaFileList != null) {
+                        mediaFileList.clear();
+                    }
                 }
-
                 // Fetch the updated list
                 mediaFileList = mMediaManager.getSDCardFileListSnapshot();
 
                 // Sort media files by creation time in descending order
-                Objects.requireNonNull(mediaFileList).sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
-
+                if (mediaFileList != null) {
+                    mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
+                }
                 ensureFilesAreReady(mediaFileList);
 
 
             } else {
                 // Failed to refresh the media list
-                Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
-                stopLoadingIntent.putExtra("message", "Failed to refresh media list");
-                sendBroadcast(stopLoadingIntent);
-                stopSelf(); // Call this to stop the service
+                showToastService("Failed to refresh the media list: " + djiError.getDescription() + "retrying...");
+                refreshMediaFileList();
             }
         });
     }
@@ -168,29 +158,37 @@ public class UploadForegroundService extends Service {
     private final MediaManager.FileListStateListener updateFileListStateListener = state -> {
         switch (state) {
             case SYNCING:
-                // The file list is being synchronized. You might want to show a loading indicator.
-                //updateNotification("Syncing media file list...");
+                // The file list is being synchronized.
+                currentFileListState = state;
+                showToastService("File list is being synchronized");
 
                 break;
             case INCOMPLETE:
                 // The file list has not been completely synchronized.
-                //updateNotification("Media file list incomplete.");
+                currentFileListState = state;
+                mediaFileList.clear();
+                showToastService("File list is not complete");
 
                 break;
             case UP_TO_DATE:
                 // The file list is complete. You can now access the full list of media files.
-                //updateNotification("Media file list synchronized.");
+                currentFileListState = state;
+                showToastService("File list is complete");
+                continueToSetCameraMode();
 
                 break;
             case DELETING:
                 // Files are being deleted from the list.
-                //updateNotification("Deleting media files...");
+                currentFileListState = state;
+                showToastService("Files are being deleted from the list");
 
                 break;
             case UNKNOWN:
             default:
                 // Handle any unknown states.
-                //updateNotification("Unknown media file list state.");
+                currentFileListState = state;
+                showToastService("Unknown state: " + state);
+
                 break;
         }
     };
@@ -238,10 +236,7 @@ public class UploadForegroundService extends Service {
             downloadAllImageFiles(mediaFiles);
         } else {
             // Handle the scenario where not all files are ready after the maximum attempts.
-            Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
-            stopLoadingIntent.putExtra("message", "Media file list incomplete.");
-            sendBroadcast(stopLoadingIntent);
-            stopSelf(); // Call this to stop the service
+            handleMediaManagerError( "Media file list incomplete.");
         }
     }
 
@@ -262,10 +257,8 @@ public class UploadForegroundService extends Service {
 
         } else {
             //no files
-            Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
-            stopLoadingIntent.putExtra("message", "No files to download");
-            sendBroadcast(stopLoadingIntent);
-            stopSelf(); // Call this to stop the service
+            handleMediaManagerError( "No files to download");
+
         }
 
     }
@@ -313,7 +306,7 @@ public class UploadForegroundService extends Service {
 
                 @Override
                 public void onFailure(DJIError error) {
-                    //updateNotification("Download Failed:" + error.getDescription());
+                    showToastService("Download Failed:" + error.getDescription());
                 }
             });
         }
@@ -343,7 +336,7 @@ public class UploadForegroundService extends Service {
                 newFile = new File(destDir, file.getName());
                 if (file.renameTo(newFile)) {
                     if(file.delete()){
-                        //updateNotification("File Moved:" + file.getName());
+                        showToastService("File Moved:" + file.getName());
                     }
                 }
             }
@@ -354,6 +347,7 @@ public class UploadForegroundService extends Service {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString() + ".jpg";
         StorageReference imageRef = storageRef.child("unclassified/" + imageName);
+        String batchId =  generateBatchId();
 
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
@@ -363,7 +357,11 @@ public class UploadForegroundService extends Service {
                      Map<String, Object> docData = new HashMap<>();
                     docData.put("imageUrl", downloadUri.toString());
                     docData.put("imageName", imageName);
-                    docData.put("timestamp", extractImageTime(imagePath));
+                    Date timestamp = extractImageTime(imagePath);
+
+                    if (timestamp != null) {
+                        docData.put("timestamp", timestamp);
+                    }
 
                     Map<String, Double> returnLocation = extractImageLocation(file);
                     if (returnLocation != null) {
@@ -377,22 +375,22 @@ public class UploadForegroundService extends Service {
                             .addOnSuccessListener(documentReference -> {
                                 // Attempt to delete the image file after successful upload and Firestore document creation
                                 try {
-                                    deleteImageFromDrone(fileList);
+                                    //deleteImageFromDrone(fileList);
                                     boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
                                     if (deleted) {
-                                        //updateNotification("Image deleted from device");
+                                        showToastService("Image deleted from device");
                                     } else {
-                                        //updateNotification("Failed to delete image from device");
+                                        showToastService("Failed to delete image from device");
                                     }
                                 } catch (Exception e) {
-                                    //updateNotification("Error deleting image: " + e.getMessage());
+                                    showToastService("Error deleting image: " + e.getMessage());
                                 }
                             })
-                            .addOnFailureListener(e ->{}/* updateNotification("Error adding document: " + e.getMessage())*/);
+                            .addOnFailureListener(e -> showToastService("Error adding document: " + e.getMessage()));
 
 
                 })
-                        .addOnFailureListener(e -> {}/*updateNotification("Image upload failed: " + e.getMessage())*/));
+                        .addOnFailureListener(e -> showToastService("Image upload failed: " + e.getMessage())));
 
         updateSuccessfulUploads();
     }
@@ -499,6 +497,13 @@ public class UploadForegroundService extends Service {
         sendBroadcast(progressUpdatePerImage);
     }
 
+    private void showToastService(String message) {
+        Intent toastMessage = new Intent("ACTION_SHOW_TOAST");
+        toastMessage.putExtra("message", message);
+        sendBroadcast(toastMessage);
+    }
+
+
     private void updateNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Upload Status")
@@ -523,8 +528,124 @@ public class UploadForegroundService extends Service {
         }
     }
 
+
+    private void setCameraMode() {
+        BaseProduct product = CameraHandler.getProductInstance();
+        if (product != null) {
+            if (CameraHandler.getCameraInstance() != null) {
+                mMediaManager = CameraHandler.getCameraInstance().getMediaManager();
+                if (null != mMediaManager) {
+                    mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
+                    if ((currentFileListState == MediaManager.FileListState.SYNCING) || (currentFileListState == MediaManager.FileListState.DELETING)){
+                        showToastService("Media Manager is busy.");
+                    }
+                } else {
+                    showToastService("MediaManager is null");
+                }
+            }else {
+                // Handle the case where the camera instance is null
+                showToastService("Camera disconnected");
+            }
+        } else {
+            // Handle the case where the product is null
+            showToastService("Drone Disconnected, please reconnect the drone and try again");
+        }
+    }
+
+    private void continueToSetCameraMode() {
+        BaseProduct product = CameraHandler.getProductInstance();
+        Model model = product.getModel();
+        if (fromOnDestroy) {
+            if (CameraHandler.getCameraInstance() != null) {
+                CameraHandler.getCameraInstance().getMode(new CommonCallbacks.CompletionCallbackWith<SettingsDefinitions.CameraMode>() {
+                    @Override
+                    public void onSuccess(SettingsDefinitions.CameraMode cameraMode) {
+                        if (cameraMode == SettingsDefinitions.CameraMode.PLAYBACK) {
+                            CameraHandler.getCameraInstance().exitPlayback(djiError -> {
+                                if (djiError == null) {
+                                    // Successfully exited playback mode
+                                    showToastService("Exited playback mode");
+                                    CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError2 -> {
+                                        if (djiError2 == null) {
+                                            // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
+                                            showToastService("Set to SHOOT_PHOTO mode");
+                                            refreshMediaFileList();
+                                        } else {
+                                            // Handle the error
+                                            showToastService("Set mode failed: " + djiError2.getDescription());
+                                        }
+                                    });
+                                } else {
+                                    // Handle the error
+                                    showToastService("Exit playback mode failed: " + djiError.getDescription());
+                                }
+                            });
+                        } else {
+                            CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError -> {
+                                if (djiError == null) {
+                                    // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
+                                    showToastService("Set to SHOOT_PHOTO mode");
+                                    refreshMediaFileList();
+                                } else {
+                                    // Handle the error
+                                    showToastService("Set mode failed: " + djiError.getDescription());
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(DJIError error) {
+                        // Handle the error
+                        showToastService("Get Mode failed: " + error.getDescription());
+                    }
+                });
+            }
+        }else {
+            // Check if the product model matches any of the specified drones
+            if (model == Model.MATRICE_300_RTK || model == Model.MAVIC_AIR_2 || model == Model.DJI_AIR_2S || model == Model.DJI_MINI_2) {
+                if (Objects.requireNonNull(CameraHandler.getCameraInstance()).isFlatCameraModeSupported()) {
+                    // For other drone models, set camera mode to FLAT
+                    CameraHandler.getCameraInstance().enterPlayback(djiError -> {
+                        if (djiError == null) {
+                            // Successfully set to PLAYBACK mode, or choose any other mode as needed
+                            showToastService("Set to PLAYBACK mode");
+                            refreshMediaFileList();
+                        } else {
+                            // Handle the error
+                            showToastService("Set mode failed: " + djiError.getDescription());
+                        }
+                    });
+                }else {
+                    showToastService("Playback Mode not Supported");
+                }
+            } else {
+                if (Objects.requireNonNull(CameraHandler.getCameraInstance()).isMediaDownloadModeSupported()) {
+                    CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, djiError -> {
+                        if (djiError == null) {
+                            // Successfully set to MEDIA_DOWNLOAD mode, or choose any other mode as needed
+                            showToastService("Set to MEDIA_DOWNLOAD mode");
+                            refreshMediaFileList();
+                        } else {
+                            // Handle the error
+                            showToastService("Set mode failed: " + djiError.getDescription());
+                        }
+                    });
+
+                } else {
+                    showToastService("Media Download Mode not Supported");
+                }
+            }
+        }
+
+
+    }
+
+
     @Override
     public void onDestroy() {
+        fromOnDestroy = true;
+        setCameraMode();
         super.onDestroy();
     }
 }

@@ -49,6 +49,8 @@ import java.util.UUID;
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
+import dji.common.product.Model;
+import dji.common.util.CommonCallbacks;
 import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
@@ -65,12 +67,12 @@ public class ClassificationActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationClient;
 
     //--------------------------------------------------------
-
+    Boolean fromOnDestroy = false;
+    private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     ProgressBar mProgressBar;
     private MediaManager mMediaManager;
     private FileListAdapter mListAdapter;
     private final List<MediaFile> mediaFileList = new ArrayList<>();
-
     private ProgressBar progressBar;
     private ProgressBar progressBarPerImage;
 
@@ -169,6 +171,9 @@ public class ClassificationActivity extends AppCompatActivity {
         Button uploadButton = findViewById(R.id.uploadButton);
         uploadButton.setOnClickListener(v -> launchImagePicker());
 
+        Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
+        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());
+
         Button scanButton = findViewById(R.id.scanButton);
         scanButton.setOnClickListener(v -> initiateScanning());
 
@@ -192,6 +197,8 @@ public class ClassificationActivity extends AppCompatActivity {
 
 
     }
+
+
 
     private void proceedWithNotification() {
         showToast(String.valueOf(mediaFileList.size()));
@@ -218,33 +225,13 @@ public class ClassificationActivity extends AppCompatActivity {
             });
             DJILog.e(TAG, "Product disconnected");
         } else {
-            if (CameraHandler.getCameraInstance() != null && CameraHandler.getCameraInstance().isMediaDownloadModeSupported()) {
-                mMediaManager = CameraHandler.getCameraInstance().getMediaManager();
-                if (null != mMediaManager) {
-                    mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
-
-                    // Set camera mode to MEDIA_DOWNLOAD before fetching file list
-                    CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, error -> {
-                        if (error == null) {
-                            // Camera mode is set, now proceed to refresh file list
-                            getFileList();
-                        } else {
-                            // Handle error setting camera mode
-                            showToast("Set cameraMode failed: " + error.getDescription());
-                        }
-                    });
-                }
-            } else {
-                showToast("Media Download Mode not Supported");
-            }
+            setCameraMode();
         }
     }
 
-    private void getFileList() {
-        runOnUiThread(() -> mProgressBar.setVisibility(View.INVISIBLE));
+    private void refreshMediaFileList() {
         if (mMediaManager != null) {
             mMediaManager.refreshFileListOfStorageLocation(SettingsDefinitions.StorageLocation.SDCARD, djiError -> runOnUiThread(() -> {
-                mProgressBar.setVisibility(View.INVISIBLE); // Ensure UI update code here is on UI thread
                 if (null == djiError) {
                     // Successfully refreshed the media list
                     List<MediaFile> newMediaFiles = mMediaManager.getSDCardFileListSnapshot();
@@ -252,8 +239,11 @@ public class ClassificationActivity extends AppCompatActivity {
                 } else {
                     // Handle the error
                     showToast("Get Media File List Failed:" + djiError.getDescription());
+                    refreshMediaFileList();
                 }
             }));
+        }else {
+            showToast("Media Manager is null");
         }
     }
 
@@ -265,17 +255,22 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private final MediaManager.FileListStateListener updateFileListStateListener = state -> {
+
         switch (state) {
             case SYNCING:
                 // The file list is being synchronized. You might want to show a loading indicator.
+                currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to show that file list synchronization is in progress
                     showToast("Syncing media file list...");
                 });
+                DJILog.e(TAG, "recalling setCameraMode");
+
                 break;
             case INCOMPLETE:
-                mediaFileList.clear();
                 // The file list has not been completely synchronized.
+                currentFileListState = state;
+                mediaFileList.clear();
                 runOnUiThread(() -> {
                     // Update UI to indicate the file list is incomplete.
                     showToast("Media file list incomplete.");
@@ -283,22 +278,28 @@ public class ClassificationActivity extends AppCompatActivity {
                 break;
             case UP_TO_DATE:
                 // The file list is complete. You can now access the full list of media files.
+                currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to reflect that the media file list is ready for access.
                     showToast("Media file list synchronized.");
                     // Optionally, refresh your UI component that displays the media file list.
                 });
+                runOnUiThread(() -> mProgressBar.setVisibility(View.INVISIBLE));
+                continueToSetCameraMode();
                 break;
             case DELETING:
                 // Files are being deleted from the list.
+                currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to show that files are currently being deleted.
                     showToast("Deleting media files...");
                 });
+                DJILog.e(TAG, "recalling setCameraMode");
                 break;
             case UNKNOWN:
             default:
-                // Handle any unknown states.
+                // An unknown state.
+                currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI for an unknown state.
                     showToast("Unknown media file list state.");
@@ -306,6 +307,144 @@ public class ClassificationActivity extends AppCompatActivity {
                 break;
         }
     };
+
+
+    private void setCameraMode() {
+        BaseProduct product = CameraHandler.getProductInstance();
+        if (product != null) {
+            if (CameraHandler.getCameraInstance() != null) {
+                mMediaManager = CameraHandler.getCameraInstance().getMediaManager();
+                if (null != mMediaManager) {
+                    mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
+                    if ((currentFileListState == MediaManager.FileListState.SYNCING) || (currentFileListState == MediaManager.FileListState.DELETING)){
+                        DJILog.e(TAG, "Media Manager is busy.");
+                    }
+                } else {
+                    showToast("MediaManager is null");
+                }
+            }else {
+                // Handle the case where the camera instance is null
+                showToast("Camera disconnected");
+            }
+        } else {
+            // Handle the case where the product is null
+            showToast("Drone Disconnected, please reconnect the drone and try again");
+        }
+    }
+
+    private void continueToSetCameraMode() {
+        BaseProduct product = CameraHandler.getProductInstance();
+        Model model = product.getModel();
+        if (fromOnDestroy) {
+            if (CameraHandler.getCameraInstance() != null) {
+                CameraHandler.getCameraInstance().getMode(new CommonCallbacks.CompletionCallbackWith<SettingsDefinitions.CameraMode>() {
+                    @Override
+                    public void onSuccess(SettingsDefinitions.CameraMode cameraMode) {
+                        if (cameraMode == SettingsDefinitions.CameraMode.PLAYBACK) {
+                            CameraHandler.getCameraInstance().exitPlayback(djiError -> {
+                                if (djiError == null) {
+                                    // Successfully exited playback mode
+                                    showToast("Exited playback mode");
+                                    CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError2 -> {
+                                        if (djiError2 == null) {
+                                            // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
+                                            showToast("Set to SHOOT_PHOTO mode");
+                                            refreshMediaFileList();
+                                        } else {
+                                            // Handle the error
+                                            showToast("Set mode failed: " + djiError2.getDescription());
+                                        }
+                                    });
+                                } else {
+                                    // Handle the error
+                                    showToast("Exit playback mode failed: " + djiError.getDescription());
+
+                                }
+                            });
+                        } else {
+                            CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError -> {
+                                if (djiError == null) {
+                                    // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
+                                    showToast("Set to SHOOT_PHOTO mode");
+                                    refreshMediaFileList();
+                                } else {
+                                    // Handle the error
+                                    showToast("Set mode failed: " + djiError.getDescription());
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(DJIError error) {
+                        // Handle the error
+                        showToast("Set mode failed: " + error.getDescription());
+                    }
+                });
+
+            }
+        }else {
+            if (CameraHandler.getCameraInstance() != null) {
+                // Check if the product model matches any of the specified drones
+                if (model == Model.MATRICE_300_RTK || model == Model.MAVIC_AIR_2 || model == Model.DJI_AIR_2S || model == Model.DJI_MINI_2) {
+                    // This block will execute for DJI Mini 2, as well as Matrice 300 RTK, Mavic Air 2, and DJI Air 2S
+                    if (CameraHandler.getCameraInstance().isFlatCameraModeSupported()) {
+                        CameraHandler.getCameraInstance().enterPlayback(djiError -> {
+                            if (djiError == null) {
+                                // Successfully set to PLAYBACK mode, or choose any other mode as needed
+                                showToast("Set to PLAYBACK mode");
+                                refreshMediaFileList();
+                            } else {
+                                // Handle the error
+                                showToast("Set mode failed: " + djiError.getDescription());
+                            }
+                        });
+                    }else {
+                        showToast("Playback Mode not Supported");
+                    }
+                } else {
+                    if (CameraHandler.getCameraInstance().isMediaDownloadModeSupported()) {
+                        CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, djiError -> {
+                            if (djiError == null) {
+                                // Successfully set to MEDIA_DOWNLOAD mode, or choose any other mode as needed
+                                showToast("Set to MEDIA_DOWNLOAD mode");
+                                refreshMediaFileList();
+                            } else {
+                                // Handle the error
+                                showToast("Set mode failed: " + djiError.getDescription());
+                            }
+                        });
+
+                    } else {
+                        showToast("Media Download Mode not Supported");
+                    }
+                }
+            }else {
+                // Handle the case where the camera instance is null
+                showToast("Camera disconnected. please reconnect the drone and try again");
+            }
+        }
+
+
+    }
+
+
+    private void checkCameraMode() {
+        if (CameraHandler.getCameraInstance() != null) {
+            CameraHandler.getCameraInstance().getMode(new CommonCallbacks.CompletionCallbackWith<SettingsDefinitions.CameraMode>() {
+                @Override
+                public void onSuccess(SettingsDefinitions.CameraMode cameraMode) {
+                    showToast("Camera Mode: " + cameraMode);
+                }
+                @Override
+                public void onFailure(DJIError error) {
+                    // Handle the error
+                    showToast("Get Mode failed: " + error.getDescription());
+                }
+            });
+        }
+    }
+
 
     // This method could be called when a disconnection event is detected
     private void onProductDisconnected() {
@@ -320,7 +459,7 @@ public class ClassificationActivity extends AppCompatActivity {
 
     // This method could be called when a reconnection event is detected
     private void onProductReconnected() {
-        getFileList();
+        refreshMediaFileList();
 
     }
 
@@ -549,14 +688,26 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     };
 
+
+    // Initialize the BroadcastReceiver of showing toast
+    private final BroadcastReceiver showToastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null) {
+                String message = intent.getStringExtra("message");
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
     private void showLoading() {
         progressBar.setVisibility(View.VISIBLE);
-        setScreenTouchable(true);
+        setScreenTouchable(false);
     }
 
     private void hideLoading() {
         progressBar.setVisibility(View.INVISIBLE);
-        setScreenTouchable(false);
+        setScreenTouchable(true);
     }
 
     private void showLoadingPerImage() {
@@ -609,6 +760,8 @@ public class ClassificationActivity extends AppCompatActivity {
 
         registerReceiver(progressUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE"));
         registerReceiver(progressPerImageUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE_PER_IMAGE"));
+        registerReceiver(showToastReceiver, new IntentFilter("ACTION_SHOW_TOAST"));
+
     }
 
     @Override
@@ -626,6 +779,11 @@ public class ClassificationActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        fromOnDestroy = true;
+        setCameraMode();
+        if (mediaFileList != null) {
+            mediaFileList.clear();
+        }
         super.onDestroy();
     }
 

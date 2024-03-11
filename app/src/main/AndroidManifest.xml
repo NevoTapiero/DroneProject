@@ -56,6 +56,7 @@
         <meta-data
             android:name="com.dji.sdk.API_KEY"
             android:value="64f7abe1f7f565d342abfe91" /> <!-- DJI SDK -->
+
         <activity
             android:name=".DJIConnectionControlActivity"
             android:exported="true"
@@ -67,7 +68,18 @@
             <meta-data
                 android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                 android:resource="@xml/accessory_filter" />
+
+
+
         </activity>
+
+        <receiver android:name=".OnAppClosedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_SHUTDOWN"/>
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation"
