@@ -45,8 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import dji.common.camera.SettingsDefinitions;
+import dji.common.error.DJICameraError;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.common.product.Model;
@@ -235,17 +237,42 @@ public class ClassificationActivity extends AppCompatActivity {
                 if (null == djiError) {
                     // Successfully refreshed the media list
                     List<MediaFile> newMediaFiles = mMediaManager.getSDCardFileListSnapshot();
-                    updateAdapterWithNewData(newMediaFiles); // Directly update adapter
+
+                    // Filter out files with 0 bytes and delete them
+                    List<MediaFile> filesToDelete = Objects.requireNonNull(newMediaFiles).stream()
+                            .filter(file -> file.getFileSize() == 0)
+                            .collect(Collectors.toList());
+
+                    if (!filesToDelete.isEmpty()) {
+                        mMediaManager.deleteFiles(filesToDelete, new CommonCallbacks.CompletionCallbackWithTwoParam<List<MediaFile>, DJICameraError>() {
+                            @Override
+                            public void onSuccess(List<MediaFile> successFiles, DJICameraError error) {
+                                Log.d(TAG, "Empty files deleted successfully.");
+                                // After deleting, refresh the list again to update UI
+                                refreshMediaFileList();
+                            }
+
+                            @Override
+                            public void onFailure(DJIError error) {
+                                Log.e(TAG, "Failed to delete empty files: " + error.getDescription());
+                                // Even if deletion fails, try to update UI with current files
+                                updateAdapterWithNewData(newMediaFiles);
+                            }
+                        });
+                    } else {
+                        // If there are no files to delete, just update UI
+                        updateAdapterWithNewData(newMediaFiles);
+                    }
                 } else {
                     // Handle the error
                     showToast("Get Media File List Failed:" + djiError.getDescription());
-                    refreshMediaFileList();
                 }
             }));
-        }else {
+        } else {
             showToast("Media Manager is null");
         }
     }
+
 
     // Directly update adapter with new data
     private void updateAdapterWithNewData(List<MediaFile> newMediaFiles) {
@@ -295,6 +322,22 @@ public class ClassificationActivity extends AppCompatActivity {
                     showToast("Deleting media files...");
                 });
                 DJILog.e(TAG, "recalling setCameraMode");
+                break;
+
+            case RESET:
+                currentFileListState = state;
+                runOnUiThread(() -> {
+                    showToast("The file list is reset. retrying...");
+                });
+
+                break;
+            case RENAMING:
+                currentFileListState = state;
+                runOnUiThread(() -> {
+                    showToast("A renaming operation is in progress.");
+                });
+
+
                 break;
             case UNKNOWN:
             default:
@@ -472,7 +515,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private void initiateScanning() {
         new Thread(() -> {
             try {
-                HttpURLConnection urlConnection = (HttpURLConnection) new URL("https://your.api.endpoint/image_classification").openConnection();
+                HttpURLConnection urlConnection = (HttpURLConnection) new URL("https://europe-west1-msdk-app-3a2d5.cloudfunctions.net/image_classification").openConnection();
                 urlConnection.setRequestMethod("POST");
                 urlConnection.setDoOutput(true);
                 urlConnection.setDoInput(true);

@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJICameraError;
@@ -123,37 +124,58 @@ public class UploadForegroundService extends Service {
     }
 
 
-
     private void refreshMediaFileList() {
-        // Proceed to refresh the file list
-        mMediaManager.refreshFileListOfStorageLocation(SettingsDefinitions.StorageLocation.SDCARD, djiError -> {
+        if (mMediaManager != null) {
+            mMediaManager.refreshFileListOfStorageLocation(SettingsDefinitions.StorageLocation.SDCARD, djiError -> {
+                if (null == djiError) {
 
-            // Successfully refreshed the media list
-
-            if (null == djiError) {
-                // Clear previous list if the current state is not INCOMPLETE
-                if (currentFileListState != MediaManager.FileListState.INCOMPLETE) {
-                    if (mediaFileList != null) {
-                        mediaFileList.clear();
+                    // Clear previous list if the current state is not INCOMPLETE
+                    if (currentFileListState != MediaManager.FileListState.INCOMPLETE) {
+                        if (mediaFileList != null) {
+                            mediaFileList.clear();
+                        }
                     }
+                    // Successfully refreshed the media list
+                    mediaFileList = mMediaManager.getSDCardFileListSnapshot();
+
+                    // Filter out files with 0 bytes and delete them
+                    List<MediaFile> filesToDelete = Objects.requireNonNull(mediaFileList).stream()
+                            .filter(file -> file.getFileSize() == 0)
+                            .collect(Collectors.toList());
+                    
+                    if (!filesToDelete.isEmpty()) {
+                        mMediaManager.deleteFiles(filesToDelete, new CommonCallbacks.CompletionCallbackWithTwoParam<List<MediaFile>, DJICameraError>() {
+                            @Override
+                            public void onSuccess(List<MediaFile> successFiles, DJICameraError error) {
+                                sortMediaFiles();
+                            }
+
+                            @Override
+                            public void onFailure(DJIError error) {
+                            }
+                        });
+                    } else {
+                        sortMediaFiles();
+                    }
+                } else {
+                    // Handle the error
+                    showToastService("Failed to refresh the media list: " + djiError.getDescription());
                 }
-                // Fetch the updated list
-                mediaFileList = mMediaManager.getSDCardFileListSnapshot();
-
-                // Sort media files by creation time in descending order
-                if (mediaFileList != null) {
-                    mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
-                }
-                ensureFilesAreReady(mediaFileList);
-
-
-            } else {
-                // Failed to refresh the media list
-                showToastService("Failed to refresh the media list: " + djiError.getDescription() + "retrying...");
-                refreshMediaFileList();
-            }
-        });
+            });
+        } else {
+            showToastService("MediaManager is null");
+        }
     }
+
+    private void sortMediaFiles() {
+        // Sort media files by creation time in descending order
+        if (mediaFileList != null) {
+            mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
+        }
+
+        ensureFilesAreReady(mediaFileList);
+    }
+
 
     private final MediaManager.FileListStateListener updateFileListStateListener = state -> {
         switch (state) {
@@ -183,6 +205,16 @@ public class UploadForegroundService extends Service {
                 showToastService("Files are being deleted from the list");
 
                 break;
+            case RESET:
+                currentFileListState = state;
+                handleMediaManagerError("The file list is reset. retrying...");
+
+                break;
+            case RENAMING:
+            currentFileListState = state;
+            showToastService("A renaming operation is in progress.");
+
+            break;
             case UNKNOWN:
             default:
                 // Handle any unknown states.
@@ -375,7 +407,7 @@ public class UploadForegroundService extends Service {
                             .addOnSuccessListener(documentReference -> {
                                 // Attempt to delete the image file after successful upload and Firestore document creation
                                 try {
-                                    //deleteImageFromDrone(fileList);
+                                    deleteImageFromDrone(fileList);
                                     boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
                                     if (deleted) {
                                         showToastService("Image deleted from device");
@@ -394,6 +426,7 @@ public class UploadForegroundService extends Service {
 
         updateSuccessfulUploads();
     }
+
 
     private void updateSuccessfulUploads(){
         // After each file download completion
