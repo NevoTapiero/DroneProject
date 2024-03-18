@@ -7,16 +7,12 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.IBinder;
 import android.support.media.ExifInterface;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.GpsDirectory;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -207,7 +203,7 @@ public class UploadForegroundService extends Service {
                 break;
             case RESET:
                 currentFileListState = state;
-                handleMediaManagerError("The file list is reset. retrying...");
+                handleMediaManagerError("The file list is reset. please try again");
 
                 break;
             case RENAMING:
@@ -349,13 +345,10 @@ public class UploadForegroundService extends Service {
 
     private void uploadAllImageFiles(File destDir, List<MediaFile> fileToDelete) {
         File[] files = destDir.listFiles();
-        String imagePath;
+        //String imagePath;
         if (files != null) {
             for (File file : files) {
-                if (file.isFile() && file.getName().endsWith(".jpg")) {
-                    imagePath = file.getPath();
-                    upLoadImages(Uri.fromFile(file), fileToDelete, imagePath, file);
-                }
+                upLoadImages(Uri.fromFile(file), fileToDelete, file);
             }
         }
     }
@@ -375,9 +368,9 @@ public class UploadForegroundService extends Service {
         }
     }
 
-    private void upLoadImages(Uri imageUri, List<MediaFile> fileList, String imagePath, File file) {
+    private void upLoadImages(Uri imageUri, List<MediaFile> fileList, File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
-        String imageName = UUID.randomUUID().toString() + ".jpg";
+        String imageName = UUID.randomUUID().toString();
         StorageReference imageRef = storageRef.child("unclassified/" + imageName);
         String batchId =  generateBatchId();
 
@@ -389,16 +382,19 @@ public class UploadForegroundService extends Service {
                      Map<String, Object> docData = new HashMap<>();
                     docData.put("imageUrl", downloadUri.toString());
                     docData.put("imageName", imageName);
-                    Date timestamp = extractImageTime(imagePath);
+                    Date timestamp = extractImageTime(file);
 
-                    if (timestamp != null) {
-                        docData.put("timestamp", timestamp);
-                    }
+                    docData.put("timestamp", timestamp);
+
+                    docData.put("imagePath" , file.getAbsolutePath());
 
                     Map<String, Double> returnLocation = extractImageLocation(file);
                     if (returnLocation != null) {
                         docData.put("latitude", returnLocation.get("latitude"));
                         docData.put("longitude", returnLocation.get("longitude"));
+                    }else {
+                        docData.put("latitude", null);
+                        docData.put("longitude", null);
                     }
 
 
@@ -445,52 +441,143 @@ public class UploadForegroundService extends Service {
     }
 
 
-    private Map<String, Double> extractImageLocation(File imageFile) {
-        Map<String, Double> returnLocation = new HashMap<>();
-        try {
-            Metadata metadata = ImageMetadataReader.readMetadata(imageFile);
-            GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
 
-            if (gpsDirectory != null) {
-                // Check if GPS info exists
-                if (gpsDirectory.containsTag(GpsDirectory.TAG_LATITUDE) && gpsDirectory.containsTag(GpsDirectory.TAG_LONGITUDE)) {
-                    // Retrieve the latitude and longitude values (might require conversion)
-                    double latitude = gpsDirectory.getGeoLocation().getLatitude();
-                    double longitude = gpsDirectory.getGeoLocation().getLongitude();
-                    returnLocation.put("latitude", latitude);
-                    returnLocation.put("longitude", longitude);
-
-                    return returnLocation;
-
-                } else {
-                    return null;
-                }
-            }
-        } catch (Exception e) {
-            return null;
-        }
-        return null;
-    }
 
 
     /**
-     * Extracts the capture time of an image.
-     * @param imagePath The path to the image file.
-     * @return The capture time of the image, or null if not available.
+     * Extracts GPS coordinates from an image file and returns them in a Map.
+     * @param imageFile The image file.
+     * @return A Map containing the keys "latitude" and "longitude" with their corresponding values,
+     * or a Null if the information is not available.
      */
-    private Date extractImageTime(String imagePath) {
+
+    private Map<String, Double> extractImageLocation(File imageFile) {
+        Map<String, Double> returnLocation = new HashMap<>();
         try {
-            ExifInterface exif = new ExifInterface(imagePath);
+
+            ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
+
+
+            // Retrieve GPS attributes
+            String latitude = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE);
+            String latitudeRef = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE_REF);
+            String longitude = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE);
+            String longitudeRef = exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF);
+
+
+            /*// your Final lat Long Values
+            float Latitude = 0, Longitude = 0;*/
+
+            double lon = 0;
+            double lat = 0;
+
+            if((latitude !=null)
+                    && (latitudeRef !=null)
+                    && (longitude != null)
+                    && (longitudeRef !=null))
+            {
+
+                // Parse the coordinates
+                lat = parseCoordinate(latitude, latitudeRef);
+                lon = parseCoordinate(longitude, longitudeRef);
+
+                /*if(LATITUDE_REF.equals("N")){
+                    Latitude = convertToDegree(LATITUDE);
+                }
+                else{
+                    Latitude = 0 - convertToDegree(LATITUDE);
+                }
+
+                if(LONGITUDE_REF.equals("E")){
+                    Longitude = convertToDegree(LONGITUDE);
+                }
+                else{
+                    Longitude = 0 - convertToDegree(LONGITUDE);
+                }*/
+
+            }
+
+
+            returnLocation.put("latitude", lat);
+            returnLocation.put("longitude", lon);
+
+            return returnLocation;
+
+        } catch (Exception e) {
+            showToastService("Error extracting image location: " + e.getMessage());
+        }
+        return null;
+
+    }
+    /**
+     * Converts degrees, minutes, and seconds to decimal degrees.
+     * @param stringDMS A string containing degrees, minutes, and seconds separated by commas.
+     * @return A float containing the decimal degrees.
+     */
+
+    private Float convertToDegree(String stringDMS){
+        float result;
+        String[] DMS = stringDMS.split(",", 3);
+
+        String[] stringD = DMS[0].split("/", 2);
+        Double D0 = Double.valueOf(stringD[0]);
+        Double D1 = Double.valueOf(stringD[1]);
+        double FloatD = D0/D1;
+
+        String[] stringM = DMS[1].split("/", 2);
+        Double M0 = Double.valueOf(stringM[0]);
+        Double M1 = Double.valueOf(stringM[1]);
+        double FloatM = M0/M1;
+
+        String[] stringS = DMS[2].split("/", 2);
+        Double S0 = Double.valueOf(stringS[0]);
+        Double S1 = Double.valueOf(stringS[1]);
+        double FloatS = S0/S1;
+
+        result = (float) (FloatD + (FloatM / 60) + (FloatS / 3600));
+
+        return result;
+
+
+    }
+
+
+    // Helper method to convert rational64u to decimal degrees
+    private double parseCoordinate(String coordinate, String ref) {
+        String[] parts = coordinate.split(" ");
+        double degrees = Double.parseDouble(parts[0]);
+        double minutes = Double.parseDouble(parts[1]);
+        double seconds = Double.parseDouble(parts[2].substring(1, parts[2].length() - 1));
+
+        double decimalDegrees = degrees + minutes / 60.0 + seconds / 3600.0;
+        return ref.equals("N") || ref.equals("E") ? decimalDegrees : -decimalDegrees;
+    }
+
+
+
+    /**
+     * Extracts the capture time of an image from its EXIF data.
+     * @param imageFile The image file.
+     * @return The capture date and time of the image or null if it cannot be extracted.
+     */
+    private Date extractImageTime(File imageFile) {
+        try {
+            ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
             String dateTimeString = exif.getAttribute(ExifInterface.TAG_DATETIME);
+
+            //String dateTimeString = exif.getAttribute(ExifInterface.TAG_DATETIME);
+
+
             if (dateTimeString != null) {
                 // Parse the date time string according to the format
-                SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
+                SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", new Locale("iw", "IL"));
                 return format.parse(dateTimeString);
             }
+
         } catch (IOException e) {
-            //
+            showToastService("Error extracting image time: " + e.getMessage());
         } catch (Exception e) { // Including parsing exceptions
-            //
+            showToastService("Error extracting image time: " + e.getMessage());
         }
         return null;
     }
@@ -551,14 +638,12 @@ public class UploadForegroundService extends Service {
 
 
     private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = getString(R.string.channel_name);
-            String description = getString(R.string.channel_description);
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            notificationManager.createNotificationChannel(channel);
-        }
+        CharSequence name = getString(R.string.channel_name);
+        String description = getString(R.string.channel_description);
+        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+        channel.setDescription(description);
+        notificationManager.createNotificationChannel(channel);
     }
 
 

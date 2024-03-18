@@ -326,16 +326,12 @@ public class ClassificationActivity extends AppCompatActivity {
 
             case RESET:
                 currentFileListState = state;
-                runOnUiThread(() -> {
-                    showToast("The file list is reset. retrying...");
-                });
+                runOnUiThread(() -> showToast("The file list is reset. retrying..."));
 
                 break;
             case RENAMING:
                 currentFileListState = state;
-                runOnUiThread(() -> {
-                    showToast("A renaming operation is in progress.");
-                });
+                runOnUiThread(() -> showToast("A renaming operation is in progress."));
 
 
                 break;

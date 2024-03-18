@@ -73,6 +73,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Manifest.permission.BLUETOOTH_ADMIN, // Bluetooth connected products
             //Manifest.permission.READ_EXTERNAL_STORAGE, // Log files
             Manifest.permission.RECORD_AUDIO, // Speaker accessory
+            Manifest.permission.ACCESS_MEDIA_LOCATION, // media files location
+
 
 
     };
@@ -243,7 +245,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 mTextConnectionStatus.setText("Status: " + str + " connected");
 
                 if (null != mProduct.getModel()) {
-                    mTextProduct.setText("" + mProduct.getModel().getDisplayName());
+                    mTextProduct.setText(mProduct.getModel().getDisplayName());
                 } else {
                     mTextProduct.setText(R.string.product_information);
                 }
