@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.common.realname.AircraftBindingState;
@@ -74,8 +75,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             //Manifest.permission.READ_EXTERNAL_STORAGE, // Log files
             Manifest.permission.RECORD_AUDIO, // Speaker accessory
             Manifest.permission.ACCESS_MEDIA_LOCATION, // media files location
-
-
 
     };
     private final AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
@@ -179,6 +178,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         TextView mVersionTv = findViewById(R.id.tv_version);
         mVersionTv.setText(getResources().getString(R.string.sdk_version, DJISDKManager.getInstance().getSDKVersion()));
+
+
+        Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
+        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());
+
 
         mBtnOpen = findViewById(R.id.btn_open);
         mBtnOpen.setOnClickListener(this);
@@ -535,6 +539,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Toast.makeText(getApplicationContext(),"BridgeMode ON!\nIP: " + bridgeIP,Toast.LENGTH_SHORT).show();
             SharedPreferences sharedPreferences = this.getSharedPreferences("NPreference", Context.MODE_PRIVATE);
             sharedPreferences.edit().putString(LAST_USED_BRIDGE_IP, bridgeIP).apply();
+        }
+    }
+
+    private void checkCameraMode() {
+        if (CameraHandler.getCameraInstance() != null) {
+            CameraHandler.getCameraInstance().getMode(new CommonCallbacks.CompletionCallbackWith<SettingsDefinitions.CameraMode>() {
+                @Override
+                public void onSuccess(SettingsDefinitions.CameraMode cameraMode) {
+                    showToast("Camera Mode: " + cameraMode);
+                }
+                @Override
+                public void onFailure(DJIError error) {
+                    // Handle the error
+                    showToast("Get Mode failed: " + error.getDescription());
+                }
+            });
         }
     }
 

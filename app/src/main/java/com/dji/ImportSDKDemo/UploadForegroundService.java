@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.IBinder;
 import android.support.media.ExifInterface;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
@@ -20,7 +21,6 @@ import com.google.firebase.storage.StorageReference;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -169,7 +169,7 @@ public class UploadForegroundService extends Service {
             mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
         }
 
-        ensureFilesAreReady(mediaFileList);
+        ensureFilesAreReady();
     }
 
 
@@ -223,7 +223,7 @@ public class UploadForegroundService extends Service {
 
 
 
-    private void ensureFilesAreReady(List<MediaFile> mediaFiles) {
+    private void ensureFilesAreReady() {
         final int maxAttempts = 10; // Max number of attempts to check file readiness
         final long waitTimeMillis = 1000; // Wait time between checks, e.g., 4 seconds
 
@@ -234,7 +234,7 @@ public class UploadForegroundService extends Service {
             allFilesReady = true; // Assume all files are ready, and verify in the loop below.
 
             // Check each file in the list to see if it's ready (e.g., fileSize > 0)
-            for (MediaFile mediaFile : mediaFiles) {
+            for (MediaFile mediaFile : mediaFileList) {
                 if (mediaFile.getFileSize() <= 0) {
                     allFilesReady = false; // Found a file that's not ready.
                     break; // No need to check further files this round.
@@ -261,7 +261,7 @@ public class UploadForegroundService extends Service {
             notifyTriesIntent.putExtra("message", "Media file list synchronized. Attempt #" + attemptCounter);
             sendBroadcast(notifyTriesIntent);
             // Proceed with processing the files as they are all ready.
-            downloadAllImageFiles(mediaFiles);
+            downloadAllImageFiles();
         } else {
             // Handle the scenario where not all files are ready after the maximum attempts.
             handleMediaManagerError( "Media file list incomplete.");
@@ -271,7 +271,7 @@ public class UploadForegroundService extends Service {
 
 
 
-    private void downloadAllImageFiles(List<MediaFile> mediaFileList) {
+    private void downloadAllImageFiles() {
         if (mediaFileList != null) {
             // Total number of files to download
             totalFiles = mediaFileList.size();
@@ -294,8 +294,6 @@ public class UploadForegroundService extends Service {
 
     private void downloadMediaFile(MediaFile mediaFile) {
         if (mediaFile != null && mediaFile.getMediaType() == MediaFile.MediaType.JPEG) { // Check if it's an image
-            List<MediaFile> mediaFileListToDelete = new ArrayList<>();
-            mediaFileListToDelete.add(mediaFile);
         mediaFile.fetchFileData(destDir, mediaFile.getFileName(), new DownloadListener<String>() {
                 @Override
                 public void onStart() {
@@ -325,7 +323,7 @@ public class UploadForegroundService extends Service {
                     sendBroadcast(stopLoadingIntentPerImage);
                     // Upload to Firebase
                     if (Objects.requireNonNull(destDir.listFiles()).length > 0) {
-                        uploadAllImageFiles(destDir, mediaFileListToDelete);
+                        uploadAllImageFiles(destDir);
                     }
                     if (Objects.requireNonNull(cacheDir.listFiles()).length > 0){
                         moveFilesLocation();
@@ -343,12 +341,12 @@ public class UploadForegroundService extends Service {
 
 
 
-    private void uploadAllImageFiles(File destDir, List<MediaFile> fileToDelete) {
+    private void uploadAllImageFiles(File destDir) {
         File[] files = destDir.listFiles();
         //String imagePath;
         if (files != null) {
             for (File file : files) {
-                upLoadImages(Uri.fromFile(file), fileToDelete, file);
+                upLoadImages(file);
             }
         }
     }
@@ -368,12 +366,12 @@ public class UploadForegroundService extends Service {
         }
     }
 
-    private void upLoadImages(Uri imageUri, List<MediaFile> fileList, File file) {
+    private void upLoadImages(File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString();
         StorageReference imageRef = storageRef.child("unclassified/" + imageName);
         String batchId =  generateBatchId();
-
+        Uri imageUri = Uri.fromFile(file);
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
                     if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -382,11 +380,12 @@ public class UploadForegroundService extends Service {
                      Map<String, Object> docData = new HashMap<>();
                     docData.put("imageUrl", downloadUri.toString());
                     docData.put("imageName", imageName);
-                    Date timestamp = extractImageTime(file);
-
-                    docData.put("timestamp", timestamp);
-
                     docData.put("imagePath" , file.getAbsolutePath());
+
+
+
+                    Date timestamp = extractImageTime(file);
+                    docData.put("timestamp", timestamp);
 
                     Map<String, Double> returnLocation = extractImageLocation(file);
                     if (returnLocation != null) {
@@ -398,12 +397,11 @@ public class UploadForegroundService extends Service {
                     }
 
 
-
                     FirebaseFirestore.getInstance().collection("unclassified").document(batchId).set(docData)
                             .addOnSuccessListener(documentReference -> {
                                 // Attempt to delete the image file after successful upload and Firestore document creation
                                 try {
-                                    deleteImageFromDrone(fileList);
+                                    deleteImageFromDrone(mediaFileList);
                                     boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
                                     if (deleted) {
                                         showToastService("Image deleted from device");
@@ -457,6 +455,11 @@ public class UploadForegroundService extends Service {
 
             ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
 
+            try {
+                return getStringDoubleMap(exif, returnLocation);
+            }catch (Exception e){
+                showToastService("Error extracting image location: " + e.getMessage());
+            }
 
             // Retrieve GPS attributes
             String latitude = exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE);
@@ -509,6 +512,25 @@ public class UploadForegroundService extends Service {
         return null;
 
     }
+
+    /**
+     *  Extracts GPS coordinates from an image file and returns them in a Map.
+     * @param exif the exif interface
+     * @param returnLocation the latitude and longitude
+     * @return a map containing the latitude and longitude
+     */
+    @Nullable
+    private static Map<String, Double> getStringDoubleMap(ExifInterface exif, Map<String, Double> returnLocation) {
+        // Retrieve GPS attributes
+        double[] latLong = exif.getLatLong();
+        if(latLong == null){
+            return null;
+        }
+        returnLocation.put("latitude", latLong[0]);
+        returnLocation.put("longitude", latLong[1]);
+        return returnLocation;
+    }
+
     /**
      * Converts degrees, minutes, and seconds to decimal degrees.
      * @param stringDMS A string containing degrees, minutes, and seconds separated by commas.
@@ -542,7 +564,13 @@ public class UploadForegroundService extends Service {
     }
 
 
-    // Helper method to convert rational64u to decimal degrees
+
+    /**
+     * Helper method to convert rational64u to decimal degrees
+     * @param coordinate Rational64u
+     * @param ref ref is either N or E
+     * @return decimal degrees
+     */
     private double parseCoordinate(String coordinate, String ref) {
         String[] parts = coordinate.split(" ");
         double degrees = Double.parseDouble(parts[0]);
@@ -560,6 +588,7 @@ public class UploadForegroundService extends Service {
      * @param imageFile The image file.
      * @return The capture date and time of the image or null if it cannot be extracted.
      */
+
     private Date extractImageTime(File imageFile) {
         try {
             ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());

@@ -88,6 +88,18 @@
         android:textColor="@color/black"
         android:textSize="17sp" />
 
+
+    <Button
+        android:id="@+id/btnCheckMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/tv_activation_state_info"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="374dp"
+        android:layout_marginEnd="120dp"
+        android:text="Check Camera Mode" />
+
     <TextView
         android:id="@+id/text_connection_status"
         android:layout_width="wrap_content"
