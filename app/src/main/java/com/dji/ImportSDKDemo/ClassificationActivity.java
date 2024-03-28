@@ -63,6 +63,7 @@ import dji.sdk.sdkmanager.DJISDKManager;
 
 public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
+    //public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
 
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
@@ -510,11 +511,21 @@ public class ClassificationActivity extends AppCompatActivity {
 
     private void initiateScanning() {
         new Thread(() -> {
+            HttpURLConnection urlConnection = null;
             try {
-                HttpURLConnection urlConnection = (HttpURLConnection) new URL("https://europe-west1-msdk-app-3a2d5.cloudfunctions.net/image_classification").openConnection();
+
+                urlConnection = (HttpURLConnection) new URL("https://europe-west1-msdk-app-3a2d5.cloudfunctions.net/image_classification").openConnection();
                 urlConnection.setRequestMethod("POST");
+                urlConnection.setRequestProperty("Content-Type", "application/json; utf-8");
                 urlConnection.setDoOutput(true);
                 urlConnection.setDoInput(true);
+
+                // Example of sending a simple JSON payload; adjust as necessary
+                //String jsonInputString = "{\"key\": \"value\"}";
+                //try(OutputStream os = urlConnection.getOutputStream()) {
+                //    byte[] input = jsonInputString.getBytes("utf-8");
+                //    os.write(input, 0, input.length);
+                //}
 
                 int responseCode = urlConnection.getResponseCode();
                 runOnUiThread(() -> {
@@ -524,13 +535,17 @@ public class ClassificationActivity extends AppCompatActivity {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
                 });
-
-                urlConnection.disconnect();
             } catch (Exception e) {
                 Log.e(TAG, "Scan initiation failed: ", e);
+                runOnUiThread(() -> Toast.makeText(ClassificationActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            } finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
             }
         }).start();
     }
+
 
 
     private void showToast(String message) {

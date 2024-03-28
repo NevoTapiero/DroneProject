@@ -50,7 +50,7 @@ public class UploadForegroundService extends Service {
     private List<MediaFile> mediaFileList;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     Boolean fromOnDestroy = false;
-
+    private String batchId;
     private int successfulUploads = 0; // Counter for successful uploads
     int totalFiles;
     private static final String CHANNEL_ID = "ForegroundServiceChannel";
@@ -84,6 +84,8 @@ public class UploadForegroundService extends Service {
         sendBroadcast(startLoadingIntent);
         // Call updateNotification at the beginning to setup foreground service
         updateNotification();
+
+        batchId = generateBatchId(); // Ensure this generates a unique ID for each batch
 
         initMediaManager();
 
@@ -343,7 +345,6 @@ public class UploadForegroundService extends Service {
 
     private void uploadAllImageFiles(File destDir) {
         File[] files = destDir.listFiles();
-        //String imagePath;
         if (files != null) {
             for (File file : files) {
                 upLoadImages(file);
@@ -366,56 +367,63 @@ public class UploadForegroundService extends Service {
         }
     }
 
+
+
+
     private void upLoadImages(File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("unclassified/" + imageName);
-        String batchId =  generateBatchId();
+        StorageReference imageRef = storageRef.child("unclassified/" + imageName + ".jpg");
         Uri imageUri = Uri.fromFile(file);
+
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                    if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        return;
-                    }
-                     Map<String, Object> docData = new HashMap<>();
-                    docData.put("imageUrl", downloadUri.toString());
-                    docData.put("imageName", imageName);
-                    docData.put("imagePath" , file.getAbsolutePath());
+                            if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                                return;
+                            }
 
+                            Map<String, Object> docData = new HashMap<>();
+                            docData.put("imageUrl", downloadUri.toString());
+                            docData.put("imageName", imageName);
+                            docData.put("imagePath", file.getAbsolutePath());
+                            docData.put("classTag", "unclassified");
 
+                            Date timestamp = extractImageTime(file);
+                            docData.put("timestamp", timestamp);
 
-                    Date timestamp = extractImageTime(file);
-                    docData.put("timestamp", timestamp);
+                            Map<String, Double> returnLocation = extractImageLocation(file);
+                            if (returnLocation != null) {
+                                docData.put("latitude", returnLocation.get("latitude"));
+                                docData.put("longitude", returnLocation.get("longitude"));
+                            } else {
+                                docData.put("latitude", null);
+                                docData.put("longitude", null);
+                            }
 
-                    Map<String, Double> returnLocation = extractImageLocation(file);
-                    if (returnLocation != null) {
-                        docData.put("latitude", returnLocation.get("latitude"));
-                        docData.put("longitude", returnLocation.get("longitude"));
-                    }else {
-                        docData.put("latitude", null);
-                        docData.put("longitude", null);
-                    }
-
-
-                    FirebaseFirestore.getInstance().collection("unclassified").document(batchId).set(docData)
-                            .addOnSuccessListener(documentReference -> {
-                                // Attempt to delete the image file after successful upload and Firestore document creation
-                                try {
-                                    deleteImageFromDrone(mediaFileList);
-                                    boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
-                                    if (deleted) {
-                                        showToastService("Image deleted from device");
-                                    } else {
-                                        showToastService("Failed to delete image from device");
-                                    }
-                                } catch (Exception e) {
-                                    showToastService("Error deleting image: " + e.getMessage());
-                                }
-                            })
-                            .addOnFailureListener(e -> showToastService("Error adding document: " + e.getMessage()));
-
-
-                })
+                            // Save image data within a specific batch
+                            // Use a document for batch with a sub-collection for images
+                            FirebaseFirestore.getInstance()
+                                    .collection("unclassified")
+                                    .document(batchId) // This is the batch document
+                                    .collection("images") // Sub-collection for images within the batch
+                                    .document(imageName) // This is the image document
+                                    .set(docData) // Adds the image document within the "images" sub-collection
+                                    .addOnSuccessListener(documentReference -> {
+                                        // Attempt to delete the image file after successful upload and Firestore document creation
+                                        deleteImageFromDrone(mediaFileList);
+                                        try {
+                                            boolean deleted = file.delete();
+                                            if (deleted) {
+                                                showToastService("Image deleted from device");
+                                            } else {
+                                                showToastService("Failed to delete image from device");
+                                            }
+                                        } catch (Exception e) {
+                                            showToastService("Error deleting image: " + e.getMessage());
+                                        }
+                                    })
+                                    .addOnFailureListener(e -> showToastService("Error adding document: " + e.getMessage()));
+                        })
                         .addOnFailureListener(e -> showToastService("Image upload failed: " + e.getMessage())));
 
         updateSuccessfulUploads();
