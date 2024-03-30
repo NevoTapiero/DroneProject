@@ -33,6 +33,7 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
@@ -42,6 +43,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -64,6 +66,7 @@ import dji.sdk.sdkmanager.DJISDKManager;
 public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
     //public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
+    private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
@@ -78,12 +81,17 @@ public class ClassificationActivity extends AppCompatActivity {
     private final List<MediaFile> mediaFileList = new ArrayList<>();
     private ProgressBar progressBar;
     private ProgressBar progressBarPerImage;
-
+    private RecyclerView rvImageCountHistory;
+    private ImageCountAdapter adapter;
+    private List<String> imageCounts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
+
+        imageCounts = new ArrayList<>();
+        adapter = new ImageCountAdapter(imageCounts);
 
         progressBar = findViewById(R.id.downloadProgressBar);
         progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
@@ -199,6 +207,9 @@ public class ClassificationActivity extends AppCompatActivity {
         recyclerView.setAdapter(mListAdapter); // Set the adapter
 
 
+        rvImageCountHistory = findViewById(R.id.rvImageCountHistory);
+        rvImageCountHistory.setLayoutManager(new LinearLayoutManager(this));
+        rvImageCountHistory.setAdapter(adapter);
     }
 
 
@@ -520,12 +531,6 @@ public class ClassificationActivity extends AppCompatActivity {
                 urlConnection.setDoOutput(true);
                 urlConnection.setDoInput(true);
 
-                // Example of sending a simple JSON payload; adjust as necessary
-                //String jsonInputString = "{\"key\": \"value\"}";
-                //try(OutputStream os = urlConnection.getOutputStream()) {
-                //    byte[] input = jsonInputString.getBytes("utf-8");
-                //    os.write(input, 0, input.length);
-                //}
 
                 int responseCode = urlConnection.getResponseCode();
                 runOnUiThread(() -> {
@@ -667,6 +672,8 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     }
 
+
+    // Initialize the BroadcastReceiver of the downloadBar
     private final BroadcastReceiver loadingReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -679,6 +686,7 @@ public class ClassificationActivity extends AppCompatActivity {
                         String message = intent.getStringExtra("message");
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();
+                        findLatestBatchAndCountImages();
                         initMediaManager();
                     break;
                 }
@@ -779,6 +787,77 @@ public class ClassificationActivity extends AppCompatActivity {
         } else {
             overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
         }
+    }
+
+
+
+    public void findLatestBatchAndCountImages() {
+        // Point to the 'unclassified' collection
+        db.collection("unclassified")
+                // Order the documents by document ID (which is a timestamp) in descending order to get the latest batch first
+                .orderBy("__name__", Query.Direction.DESCENDING)
+                // Limit to only fetch the first (latest) batch
+                .limit(1)
+                // Get the query results
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        // Get the batch ID of the latest batch
+                        String batchId = queryDocumentSnapshots.getDocuments().get(0).getId(); // Get the batch ID
+                        // Now, count the images in the 'images' sub-collection of the latest batch
+                        countImagesInBatch(batchId, new ImageCountCallback() {
+                            @Override
+                            public void onCallback(int imageCount) {
+                                showToast("Number of images in the latest batch: " + imageCount);
+                                updateImageCountUI(imageCount); // Update UI with the image count
+
+                            }
+
+                            @Override
+                            public void onError(Exception e) {
+                                showToast("Failed to count images in the batch: " + e.getMessage());
+                                // Handle the error as needed
+                            }
+                        });
+                    } else {
+                        // Handle case where there are no batches
+                        showToast("No unclassified batches found.");
+                    }
+                })
+                .addOnFailureListener(Throwable::printStackTrace);
+    }
+
+    private void countImagesInBatch(String batchId, ImageCountCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        // Use the callback to handle errors
+        db.collection("unclassified").document(batchId).collection("images")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    // Count the number of images
+                    int imageCount = queryDocumentSnapshots.size();
+                    // Use the callback to return the image count
+                    callback.onCallback(imageCount);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    public interface ImageCountCallback {
+        void onCallback(int imageCount);
+        void onError(Exception e);
+    }
+
+
+    // Helper method to update the UI with the image count
+    private void updateImageCountUI(int imageCount) {
+        String logEntry = String.format(Locale.getDefault(), "Number of images in the latest batch: %d", imageCount);
+
+        // Instead of adding to the end, add to the beginning of the list
+        imageCounts.add(0, logEntry); // Add at the first position
+        // Notify that an item is inserted at the first position
+        adapter.notifyItemInserted(0);
+
+        // Scroll to the top to make the new item visible
+        rvImageCountHistory.scrollToPosition(0);
     }
 
 
