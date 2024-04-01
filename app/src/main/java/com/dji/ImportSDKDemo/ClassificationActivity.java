@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.support.media.ExifInterface;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -29,18 +30,18 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,13 +67,14 @@ import dji.sdk.sdkmanager.DJISDKManager;
 public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
     //public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
-    private final FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private int successfulUploads = 0; // Counter for successful uploads
 
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
-    private FusedLocationProviderClient fusedLocationClient;
 
     //--------------------------------------------------------
+    private String batchId;
+
     Boolean fromOnDestroy = false;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     ProgressBar mProgressBar;
@@ -90,6 +92,7 @@ public class ClassificationActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
 
+
         imageCounts = new ArrayList<>();
         adapter = new ImageCountAdapter(imageCounts);
 
@@ -98,7 +101,6 @@ public class ClassificationActivity extends AppCompatActivity {
 
 
         // Initialize fusedLocationClient and other components
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         imagePickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                 handleImageSelection(result.getData());
@@ -113,6 +115,17 @@ public class ClassificationActivity extends AppCompatActivity {
         registerSDK();
     }
 
+    public static String generateBatchId() {
+        // Define the date format
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+
+        // Get the current date and time
+        Date now = new Date();
+
+        // Format the current date and time according to the specified format
+
+        return dateFormat.format(now);
+    }
 
     private void registerSDK() {
         DJISDKManager.getInstance().registerApp(ClassificationActivity.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
@@ -558,66 +571,127 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void handleImageSelection(Intent data) {
+        batchId = generateBatchId(); // Ensure this generates a unique ID for each batch
         ClipData clipData = data.getClipData();
         if (clipData != null) {
+            int totalFiles = clipData.getItemCount();
             for (int i = 0; i < clipData.getItemCount(); i++) {
                 ClipData.Item item = clipData.getItemAt(i);
                 Uri selectedImageUri = item.getUri();
-                upLoadImages(selectedImageUri);
+                upLoadImages(selectedImageUri, totalFiles);
             }
         } else if (data.getData() != null) {
+            int totalFiles = 1;
             Uri selectedImageUri = data.getData();
-            upLoadImages(selectedImageUri);
+            upLoadImages(selectedImageUri, totalFiles);
         }
     }
 
 
 
-    private void upLoadImages(Uri imageUri) {
+    private void upLoadImages(Uri selectedImageUri, int totalFiles) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
-        String imageName = UUID.randomUUID().toString() + ".jpg";
+        String imageName = UUID.randomUUID().toString();
         StorageReference imageRef = storageRef.child("unclassified/" + imageName);
-
-
-
-        imageRef.putFile(imageUri)
+        imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        //ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-                        return;
-                    }
+                            if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                                return;
+                            }
 
-                    fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
-                                Map<String, Object> docData = new HashMap<>();
-                                docData.put("imageUrl", downloadUri.toString());
-                                docData.put("imageName", imageName);
-                                docData.put("timestamp", FieldValue.serverTimestamp());
+                            Map<String, Object> docData = new HashMap<>();
+                            docData.put("imageUrl", downloadUri.toString());
+                            docData.put("imageName", imageName);
+                            docData.put("imagePath", selectedImageUri.getPath());
+                            docData.put("classTag", "unclassified");
 
-                                if (location != null) {
-                                    docData.put("latitude", location.getLatitude());
-                                    docData.put("longitude", location.getLongitude());
-                                }
+                            Date timestamp = extractImageTime(selectedImageUri);
+                            docData.put("timestamp", timestamp);
 
-                                FirebaseFirestore.getInstance().collection("unclassified").add(docData)
-                                        .addOnSuccessListener(documentReference -> {
-                                            showToast("Image and location saved successfully");
-                                            // Attempt to delete the image file after successful upload and Firestore document creation
-                                            try {
-                                                boolean deleted = new File(Objects.requireNonNull(imageUri.getPath())).delete();
-                                                if (deleted) {
-                                                    showToast("Image deleted from device");
-                                                } else {
-                                                    showToast("Failed to delete image from device");
-                                                }
-                                            } catch (Exception e) {
-                                                showToast("Error deleting image: " + e.getMessage());
-                                            }
-                                        })
-                                        .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage()));
-                            })
-                            .addOnFailureListener(e -> showToast("Image upload failed: " + e.getMessage()));
-                }));
+                            Map<String, Double> returnLocation = extractImageLocation(selectedImageUri);
+                            if (returnLocation != null) {
+                                docData.put("latitude", returnLocation.get("latitude"));
+                                docData.put("longitude", returnLocation.get("longitude"));
+                            } else {
+                                docData.put("latitude", null);
+                                docData.put("longitude", null);
+                            }
+
+
+                            // Save image data within a specific batch
+                            // Use a document for batch with a sub-collection for images
+                            FirebaseFirestore.getInstance()
+                                    .collection("unclassified")
+                                    .document(batchId) // This is the batch document
+                                    .collection("images") // Sub-collection for images within the batch
+                                    .document(imageName) // This is the image document
+                                    .set(docData) // Adds the image document within the "images" sub-collection
+                                    .addOnSuccessListener(documentReference -> {
+                                    })
+                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage()));
+                        })
+                        .addOnFailureListener(e -> showToast("Image upload failed: " + e.getMessage())));
+
+        updateSuccessfulUploads(totalFiles);
     }
+
+
+    private void updateSuccessfulUploads(int totalFiles){
+        // After each file download completion counting the successful uploads and updating the recycler view
+        successfulUploads++;
+        if(successfulUploads == totalFiles){
+            updateImageCountUI(successfulUploads);
+        }
+    }
+
+    private Date extractImageTime(Uri imageUri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(imageUri);
+            ExifInterface exif = null;
+            if (inputStream != null) {
+                exif = new ExifInterface(inputStream);
+            }
+            String dateTimeString = null;
+            if (exif != null) {
+                dateTimeString = exif.getAttribute(ExifInterface.TAG_DATETIME);
+            }
+            if (dateTimeString != null) {
+                SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
+                return format.parse(dateTimeString);
+            }
+        } catch (IOException | ParseException e) {
+            showToast("Error extracting image time: " + e.getMessage());
+        }
+        return null;
+    }
+
+    private Map<String, Double> extractImageLocation(Uri imageUri) {
+        Map<String, Double> returnLocation = new HashMap<>();
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(imageUri);
+            ExifInterface exif = null;
+            if (inputStream != null) {
+                exif = new ExifInterface(inputStream);
+            }
+
+            double[] latLong = new double[0];
+            if (exif != null) {
+                latLong = exif.getLatLong();
+            }
+            if(latLong != null) {
+                returnLocation.put("latitude", latLong[0]);
+                returnLocation.put("longitude", latLong[1]);
+                return returnLocation;
+            }
+        } catch (IOException e) {
+            showToast("Error extracting image location: " + e.getMessage());
+        }
+        return null;
+    }
+
+
+
+
 
 
 
@@ -684,9 +758,10 @@ public class ClassificationActivity extends AppCompatActivity {
                         break;
                     case UploadForegroundService.ACTION_STOP_LOADING:
                         String message = intent.getStringExtra("message");
+                        int imageCount = intent.getIntExtra("imageCount", 0);
+                        updateImageCountUI(imageCount);
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();
-                        findLatestBatchAndCountImages();
                         initMediaManager();
                     break;
                 }
@@ -789,62 +864,6 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     }
 
-
-
-    public void findLatestBatchAndCountImages() {
-        // Point to the 'unclassified' collection
-        db.collection("unclassified")
-                // Order the documents by document ID (which is a timestamp) in descending order to get the latest batch first
-                .orderBy("__name__", Query.Direction.DESCENDING)
-                // Limit to only fetch the first (latest) batch
-                .limit(1)
-                // Get the query results
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
-                        // Get the batch ID of the latest batch
-                        String batchId = queryDocumentSnapshots.getDocuments().get(0).getId(); // Get the batch ID
-                        // Now, count the images in the 'images' sub-collection of the latest batch
-                        countImagesInBatch(batchId, new ImageCountCallback() {
-                            @Override
-                            public void onCallback(int imageCount) {
-                                showToast("Number of images in the latest batch: " + imageCount);
-                                updateImageCountUI(imageCount); // Update UI with the image count
-
-                            }
-
-                            @Override
-                            public void onError(Exception e) {
-                                showToast("Failed to count images in the batch: " + e.getMessage());
-                                // Handle the error as needed
-                            }
-                        });
-                    } else {
-                        // Handle case where there are no batches
-                        showToast("No unclassified batches found.");
-                    }
-                })
-                .addOnFailureListener(Throwable::printStackTrace);
-    }
-
-    private void countImagesInBatch(String batchId, ImageCountCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        // Use the callback to handle errors
-        db.collection("unclassified").document(batchId).collection("images")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    // Count the number of images
-                    int imageCount = queryDocumentSnapshots.size();
-                    // Use the callback to return the image count
-                    callback.onCallback(imageCount);
-                })
-                .addOnFailureListener(callback::onError);
-    }
-
-    public interface ImageCountCallback {
-        void onCallback(int imageCount);
-        void onError(Exception e);
-    }
 
 
     // Helper method to update the UI with the image count

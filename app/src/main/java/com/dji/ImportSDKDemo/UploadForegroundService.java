@@ -373,9 +373,8 @@ public class UploadForegroundService extends Service {
     private void upLoadImages(File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("unclassified/" + imageName + ".jpg");
+        StorageReference imageRef = storageRef.child("unclassified/" + imageName);
         Uri imageUri = Uri.fromFile(file);
-
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
                             if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -399,6 +398,7 @@ public class UploadForegroundService extends Service {
                                 docData.put("latitude", null);
                                 docData.put("longitude", null);
                             }
+
 
                             // Save image data within a specific batch
                             // Use a document for batch with a sub-collection for images
@@ -441,6 +441,7 @@ public class UploadForegroundService extends Service {
             // All files have been uploaded
             Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
             stopLoadingIntent.putExtra("message", "All files uploaded successfully");
+            stopLoadingIntent.putExtra("imageCount", successfulUploads);
             sendBroadcast(stopLoadingIntent);
             stopSelf(); // Call this to stop the service
         }
