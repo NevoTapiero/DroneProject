@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -68,7 +69,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
     //public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
     private int successfulUploads = 0; // Counter for successful uploads
-
+    private TextView tvLoadingProgressBar;
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
 
@@ -83,9 +84,9 @@ public class ClassificationActivity extends AppCompatActivity {
     private final List<MediaFile> mediaFileList = new ArrayList<>();
     private ProgressBar progressBar;
     private ProgressBar progressBarPerImage;
-    private RecyclerView rvImageCountHistory;
-    private ImageCountAdapter adapter;
-    private List<String> imageCounts;
+    private RecyclerView rvLogEntry;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,8 +94,13 @@ public class ClassificationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_classification);
 
 
-        imageCounts = new ArrayList<>();
-        adapter = new ImageCountAdapter(imageCounts);
+
+
+        //for resetting the JSON file and testing
+        //LogManager.deleteJSON(getApplicationContext());
+
+
+        LogManager.initializeLogFile(getApplicationContext());
 
         progressBar = findViewById(R.id.downloadProgressBar);
         progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
@@ -107,13 +113,18 @@ public class ClassificationActivity extends AppCompatActivity {
             }
         });
 
+
         //-------------------------------------------------------- Initializing MediaManager:
-        mProgressBar = findViewById(R.id.progressBar);
 
         initMediaManager();
         initializeUIComponents();
         registerSDK();
+
+
+
     }
+
+
 
     public static String generateBatchId() {
         // Define the date format
@@ -149,13 +160,16 @@ public class ClassificationActivity extends AppCompatActivity {
                 Log.d(TAG, "onProductDisconnect");
                 showToast("Product Disconnected");
                 onProductDisconnected();
-
+                mProgressBar.setVisibility(View.INVISIBLE);
+                tvLoadingProgressBar.setText(R.string.drone_disconnected);
             }
             @Override
             public void onProductConnect(BaseProduct baseProduct) {
                 Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
                 showToast("Product Connected");
                 onProductReconnected();
+                mProgressBar.setVisibility(View.VISIBLE);
+                tvLoadingProgressBar.setText(R.string.drone_disconnected);
             }
 
 
@@ -192,6 +206,8 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void initializeUIComponents() {
+
+
         Button uploadButton = findViewById(R.id.uploadButton);
         uploadButton.setOnClickListener(v -> launchImagePicker());
 
@@ -215,14 +231,25 @@ public class ClassificationActivity extends AppCompatActivity {
 
 
         mListAdapter = new FileListAdapter(mediaFileList);
-        RecyclerView recyclerView = findViewById(R.id.mediaFileRecyclerView);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this)); // Set the LayoutManager
-        recyclerView.setAdapter(mListAdapter); // Set the adapter
+        RecyclerView mediaRecyclerView = findViewById(R.id.mediaFileRecyclerView);
+        mediaRecyclerView.setLayoutManager(new LinearLayoutManager(this)); // Set the LayoutManager
+        mediaRecyclerView.setAdapter(mListAdapter); // Set the adapter
 
 
-        rvImageCountHistory = findViewById(R.id.rvImageCountHistory);
-        rvImageCountHistory.setLayoutManager(new LinearLayoutManager(this));
-        rvImageCountHistory.setAdapter(adapter);
+        rvLogEntry = findViewById(R.id.rvLogHistory);
+        rvLogEntry.setLayoutManager(new LinearLayoutManager(this));
+        List<LogEntry> logEntries = LogManager.readLogsFromFile(getApplicationContext());
+        LogAdapter logAdapter = new LogAdapter(logEntries);
+        rvLogEntry.setAdapter(logAdapter);
+
+        mProgressBar = findViewById(R.id.loadingProgressBar);
+
+        tvLoadingProgressBar = findViewById(R.id.progressBarText);
+        if (CameraHandler.getProductInstance() != null) {
+            mProgressBar.setVisibility(View.VISIBLE);
+            tvLoadingProgressBar.setText(R.string.drone_connected);
+        }else
+            tvLoadingProgressBar.setText(R.string.drone_disconnected);
     }
 
 
@@ -336,7 +363,10 @@ public class ClassificationActivity extends AppCompatActivity {
                     showToast("Media file list synchronized.");
                     // Optionally, refresh your UI component that displays the media file list.
                 });
-                runOnUiThread(() -> mProgressBar.setVisibility(View.INVISIBLE));
+                runOnUiThread(() -> {
+                    mProgressBar.setVisibility(View.INVISIBLE);
+                    tvLoadingProgressBar.setVisibility(View.INVISIBLE);
+                });
                 continueToSetCameraMode();
                 break;
             case DELETING:
@@ -535,6 +565,8 @@ public class ClassificationActivity extends AppCompatActivity {
 
     private void initiateScanning() {
         new Thread(() -> {
+            runOnUiThread(() -> showLoading(false));
+
             HttpURLConnection urlConnection = null;
             try {
 
@@ -544,11 +576,11 @@ public class ClassificationActivity extends AppCompatActivity {
                 urlConnection.setDoOutput(true);
                 urlConnection.setDoInput(true);
 
-
                 int responseCode = urlConnection.getResponseCode();
                 runOnUiThread(() -> {
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         Toast.makeText(ClassificationActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
+                        hideLoading();
                     } else {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
@@ -641,7 +673,41 @@ public class ClassificationActivity extends AppCompatActivity {
         successfulUploads++;
         if(successfulUploads == totalFiles){
             updateImageCountUI(successfulUploads);
+            successfulUploads = 0;
         }
+    }
+
+
+    // Helper method to update the UI with the image count
+    private void updateImageCountUI(int imageCount) {
+        String timeStamp = new SimpleDateFormat("yyyy/MM/dd => HH:mm:ss", Locale.getDefault()).format(new Date());
+        String message;
+        if (imageCount == 1) {
+            message = imageCount  + " image uploaded";
+        }else {
+            message = imageCount  + " images uploaded";
+        }
+        LogEntry logEntry = new LogEntry(timeStamp, message);
+        LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
+
+        updateLogInView();
+    }
+
+
+    public void updateLogInView() {
+        LogAdapter adapter = (LogAdapter) rvLogEntry.getAdapter();
+        if (adapter != null) {
+            adapter.resetEntries();
+        }
+
+
+        List<LogEntry> newLogEntries = LogManager.readLogsFromFile(getApplicationContext());
+        if (adapter != null) {
+            showToast("Log size: " + newLogEntries.size());
+            adapter.updateData(newLogEntries);
+        }
+        //scroll to the top to show the newest entry
+        rvLogEntry.scrollToPosition(0);
     }
 
     private Date extractImageTime(Uri imageUri) {
@@ -754,7 +820,7 @@ public class ClassificationActivity extends AppCompatActivity {
             if (intent.getAction() != null) {
                 switch (intent.getAction()) {
                     case UploadForegroundService.ACTION_START_LOADING:
-                        showLoading();
+                        showLoading(true);
                         break;
                     case UploadForegroundService.ACTION_STOP_LOADING:
                         String message = intent.getStringExtra("message");
@@ -837,8 +903,10 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     };
 
-    private void showLoading() {
-        progressBar.setVisibility(View.VISIBLE);
+    private void showLoading(boolean showBar) {
+        if (showBar) {
+            progressBar.setVisibility(View.VISIBLE);
+        }
         setScreenTouchable(false);
     }
 
@@ -862,21 +930,6 @@ public class ClassificationActivity extends AppCompatActivity {
         } else {
             overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
         }
-    }
-
-
-
-    // Helper method to update the UI with the image count
-    private void updateImageCountUI(int imageCount) {
-        String logEntry = String.format(Locale.getDefault(), "Number of images in the latest batch: %d", imageCount);
-
-        // Instead of adding to the end, add to the beginning of the list
-        imageCounts.add(0, logEntry); // Add at the first position
-        // Notify that an item is inserted at the first position
-        adapter.notifyItemInserted(0);
-
-        // Scroll to the top to make the new item visible
-        rvImageCountHistory.scrollToPosition(0);
     }
 
 
