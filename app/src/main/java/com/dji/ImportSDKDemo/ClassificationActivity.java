@@ -127,15 +127,8 @@ public class ClassificationActivity extends AppCompatActivity {
 
 
     public static String generateBatchId() {
-        // Define the date format
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
-
-        // Get the current date and time
-        Date now = new Date();
-
-        // Format the current date and time according to the specified format
-
-        return dateFormat.format(now);
+        // Format the current date and time according to the specified format and return it
+        return new SimpleDateFormat("yyyy.MM.dd => HH:mm:ss", Locale.getDefault()).format(new Date());
     }
 
     private void registerSDK() {
@@ -680,27 +673,30 @@ public class ClassificationActivity extends AppCompatActivity {
 
     // Helper method to update the UI with the image count
     private void updateImageCountUI(int imageCount) {
-        String timeStamp = new SimpleDateFormat("yyyy/MM/dd => HH:mm:ss", Locale.getDefault()).format(new Date());
-        String message;
+         String message;
         if (imageCount == 1) {
             message = imageCount  + " image uploaded";
         }else {
             message = imageCount  + " images uploaded";
         }
-        LogEntry logEntry = new LogEntry(timeStamp, message);
+        LogEntry logEntry = new LogEntry(batchId, message);
         LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
 
         updateLogInView();
     }
 
 
+
     public void updateLogInView() {
         LogAdapter adapter = (LogAdapter) rvLogEntry.getAdapter();
+
+        //rest the adapter to sync it with the new data
         if (adapter != null) {
             adapter.resetEntries();
         }
 
 
+        //syncing the adapter with the new data
         List<LogEntry> newLogEntries = LogManager.readLogsFromFile(getApplicationContext());
         if (adapter != null) {
             showToast("Log size: " + newLogEntries.size());
@@ -709,6 +705,7 @@ public class ClassificationActivity extends AppCompatActivity {
         //scroll to the top to show the newest entry
         rvLogEntry.scrollToPosition(0);
     }
+
 
     private Date extractImageTime(Uri imageUri) {
         try {
@@ -825,6 +822,7 @@ public class ClassificationActivity extends AppCompatActivity {
                     case UploadForegroundService.ACTION_STOP_LOADING:
                         String message = intent.getStringExtra("message");
                         int imageCount = intent.getIntExtra("imageCount", 0);
+                        batchId = intent.getStringExtra("batchID");
                         updateImageCountUI(imageCount);
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();

@@ -441,6 +441,7 @@ public class UploadForegroundService extends Service {
             // All files have been uploaded
             Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
             stopLoadingIntent.putExtra("message", "All files uploaded successfully");
+            stopLoadingIntent.putExtra("batchID", batchId);
             stopLoadingIntent.putExtra("imageCount", successfulUploads);
             sendBroadcast(stopLoadingIntent);
             stopSelf(); // Call this to stop the service
