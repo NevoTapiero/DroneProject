@@ -31,6 +31,14 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
+import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
+import com.dji.ImportSDKDemo.HistoryLog.LogAdapter;
+import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
+import com.dji.ImportSDKDemo.HistoryLog.LogManager;
+import com.dji.ImportSDKDemo.Library.LibraryActivity;
+import com.dji.ImportSDKDemo.Services.UploadForegroundService;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -86,7 +94,8 @@ public class ClassificationActivity extends AppCompatActivity {
     private ProgressBar progressBarPerImage;
     private RecyclerView rvLogEntry;
 
-
+    private final FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private final DocumentReference firebaseRef = db.collection("count_classified_classes").document("countDict");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -232,7 +241,12 @@ public class ClassificationActivity extends AppCompatActivity {
         rvLogEntry = findViewById(R.id.rvLogHistory);
         rvLogEntry.setLayoutManager(new LinearLayoutManager(this));
         List<LogEntry> logEntries = LogManager.readLogsFromFile(getApplicationContext());
-        LogAdapter logAdapter = new LogAdapter(logEntries);
+
+        // Create the adapter and set it to the RecyclerView
+        LogAdapter logAdapter = new LogAdapter(logEntries, item -> {
+            Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
+            // Handle the click event, e.g., navigate to a different screen with the item details
+        });
         rvLogEntry.setAdapter(logAdapter);
 
         mProgressBar = findViewById(R.id.loadingProgressBar);
@@ -573,7 +587,9 @@ public class ClassificationActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         Toast.makeText(ClassificationActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
+                        fetchClassificationCounts();
                         hideLoading();
+
                     } else {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
@@ -668,6 +684,60 @@ public class ClassificationActivity extends AppCompatActivity {
             updateImageCountUI(successfulUploads);
             successfulUploads = 0;
         }
+    }
+
+    public void fetchClassificationCounts() {
+    firebaseRef.get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Map<String, Object> counts = documentSnapshot.getData();
+                        List<ClassificationCount> classificationCounts = new ArrayList<>();
+                        if (counts != null) {
+                            for (Map.Entry<String, Object> entry : counts.entrySet()) {
+                                classificationCounts.add(new ClassificationCount(entry.getKey(), (long) entry.getValue()));
+                            }
+                        }
+                        // Now update the RecyclerView
+                        updateClassCountView(classificationCounts);
+                        firebaseRef.delete();
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("Firestore", "Error getting classification counts", e));
+    }
+
+    /**
+     * update the logManager with the message and the batch ID, and update the recycle view
+     * @param classificationCounts - List of classification counts
+     */
+    private void updateClassCountView(List<ClassificationCount> classificationCounts) {
+        StringBuilder messageBuilder = getMessageBuilder(classificationCounts);
+
+        // Now 'message' contains the desired string, e.g., "you classified 3 images to class: class1, images to class: class2..."
+        String message = messageBuilder.toString();
+        LogEntry logEntry = new LogEntry(batchId, message);
+        LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
+
+        updateLogInView();
+    }
+
+
+    /**
+     * @param classificationCounts - List of classification counts
+     * @return - A string builder containing the message
+     */
+    @NonNull
+    private static StringBuilder getMessageBuilder(List<ClassificationCount> classificationCounts) {
+        StringBuilder messageBuilder = new StringBuilder("You classified");
+        for (ClassificationCount classificationCount : classificationCounts) {
+            // Check if the builder already has some text, add a separator before adding more.
+            if (messageBuilder.length() > 0) {
+                messageBuilder.append(",\n");
+            }
+            messageBuilder.append(classificationCount.getCount())
+                    .append(" images to class: ")
+                    .append(classificationCount.getClassName());
+        }
+        return messageBuilder;
     }
 
 

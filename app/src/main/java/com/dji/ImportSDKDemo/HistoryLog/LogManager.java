@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.HistoryLog;
 
 import android.content.Context;
 import android.util.Log;

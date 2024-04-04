@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
 
+import com.dji.ImportSDKDemo.Receivers.USBConnection.DJIConnectionControlActivity;
+import com.dji.ImportSDKDemo.Receivers.USBConnection.OnDJIUSBAttachedReceiver;
 import com.secneo.sdk.Helper;
 
 public class MApplication extends Application {

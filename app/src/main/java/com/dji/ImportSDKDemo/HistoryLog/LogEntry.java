@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.HistoryLog;
 
 public class LogEntry {
     private final String timestamp;

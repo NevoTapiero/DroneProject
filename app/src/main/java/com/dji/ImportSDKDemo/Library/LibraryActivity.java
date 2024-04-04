@@ -1,10 +1,12 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Library;
 
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.dji.ImportSDKDemo.R;
 
 public class LibraryActivity extends AppCompatActivity {
 

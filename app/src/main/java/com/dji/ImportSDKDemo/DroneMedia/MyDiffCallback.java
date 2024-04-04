@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.DroneMedia;
 
 import androidx.recyclerview.widget.DiffUtil;
 
@@ -27,13 +27,13 @@ class MyDiffCallback extends DiffUtil.Callback {
 
     @Override
     public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
-        // Add your logic to determine if two items are the same
+        //determine if two items are the same
         return oldFiles.get(oldItemPosition).getFileName().equals(newFiles.get(newItemPosition).getFileName());
     }
 
     @Override
     public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-        // Add your logic to check if the content of two items are the same
+        //check if the content of two items are the same
         MediaFile oldFile = oldFiles.get(oldItemPosition);
         MediaFile newFile = newFiles.get(newItemPosition);
         return oldFile.getFileName().equals(newFile.getFileName()) && oldFile.getFileSize() == newFile.getFileSize();

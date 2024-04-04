@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Services;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -14,6 +14,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import com.dji.ImportSDKDemo.CameraHandler;
+import com.dji.ImportSDKDemo.R;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;

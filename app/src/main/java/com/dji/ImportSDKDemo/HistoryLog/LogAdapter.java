@@ -1,19 +1,26 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.HistoryLog;
+
 import android.annotation.SuppressLint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.dji.ImportSDKDemo.R;
+
 import java.util.List;
 
 public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
 
     private final List<LogEntry> logEntries;
+    private OnItemClickListener listener;
 
-    public LogAdapter(List<LogEntry> logEntries) {
+    public LogAdapter(List<LogEntry> logEntries, OnItemClickListener listener) {
         this.logEntries = logEntries;
+        this.listener = listener;
     }
 
     // Method to get the current dataset
@@ -45,6 +52,12 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
         LogEntry logEntry = logEntries.get(position);
         holder.timestampTextView.setText(logEntry.getTimestamp());
         holder.messageTextView.setText(logEntry.getMessage());
+        holder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                listener.onItemClick(logEntry);
+            }
+        });
     }
 
     @Override
@@ -61,25 +74,6 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
             messageTextView = itemView.findViewById(R.id.messageTextView);
         }
     }
- /*   public void updateData(List<LogEntry> newLogEntries) {
-
-        for (int i = newLogEntries.size() - 1; i >= 0; i--) {
-            LogEntry entry = newLogEntries.get(i);
-            if (!logEntries.contains(entry)) {
-                // Check if the list size has reached the limit
-                if (logEntries.size() >= 20) {
-                    // Remove the last (oldest) entry
-                    logEntries.remove(logEntries.size() - 1);
-                    // Notify the adapter that an item has been removed from the end
-                    notifyItemRemoved(logEntries.size());
-                }
-                // Add new entry at the beginning of the list
-                logEntries.add(0, entry);
-                // Notify the adapter that an item is inserted at position 0
-                notifyItemInserted(0);
-            }
-        }
-    }*/
 
     public void updateData(List<LogEntry> newLogEntries) {
         for (LogEntry entry : newLogEntries) {
@@ -99,7 +93,9 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
         }
     }
 
-
+    public interface OnItemClickListener {
+        void onItemClick(LogEntry item);
+    }
 }
 
 

@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Library;
 import static com.qx.wz.dj.rtcm.StringUtil.TAG;
 
 import android.annotation.SuppressLint;
@@ -11,6 +11,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.dji.ImportSDKDemo.R;
 import com.squareup.picasso.Picasso;
 import java.util.ArrayList;
 import java.util.Date;

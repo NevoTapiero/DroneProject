@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Receivers.USBConnection;
 
 import android.app.Activity;
 import android.content.Intent;

@@ -1,10 +1,12 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.DroneMedia;
 
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.dji.ImportSDKDemo.R;
 
 public class MediaFileViewHolder extends RecyclerView.ViewHolder {
     TextView fileNameTextView;

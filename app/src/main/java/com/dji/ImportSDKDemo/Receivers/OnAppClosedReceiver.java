@@ -1,10 +1,12 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Receivers;
 
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+
+import com.dji.ImportSDKDemo.CameraHandler;
 
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;

@@ -43,10 +43,10 @@
         android:theme="@style/Theme.ImportSDKDemo"
         tools:targetApi="31">
         <activity
-            android:name=".LibraryActivity"
+            android:name=".Library.LibraryActivity"
             android:exported="false" />
         <activity
-            android:name=".CustomActivity"
+            android:name=".Library.CustomActivity"
             android:exported="false" />
         <activity
             android:name=".ClassificationActivity"
@@ -61,7 +61,7 @@
             android:value="64f7abe1f7f565d342abfe91" /> <!-- DJI SDK -->
 
         <activity
-            android:name=".DJIConnectionControlActivity"
+            android:name=".Receivers.USBConnection.DJIConnectionControlActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Translucent">
             <intent-filter>
@@ -76,7 +76,7 @@
 
         </activity>
 
-        <receiver android:name=".OnAppClosedReceiver"
+        <receiver android:name=".Receivers.OnAppClosedReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_SHUTDOWN"/>
@@ -98,7 +98,7 @@
             android:name=".GoFlyActivity"
             android:screenOrientation="landscape" />
 
-        <service android:name=".UploadForegroundService" />
+        <service android:name=".Services.UploadForegroundService" />
     </application>
 
 </manifest>

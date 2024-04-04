@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.DroneMedia;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
@@ -11,6 +11,8 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.dji.ImportSDKDemo.R;
 
 import java.util.List;
 
