@@ -12,7 +12,12 @@
           "package_name": "com.dji.ImportSDKDemo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "603414430717-j3bp6i774hiaa2nvg871tsq3k4ocel8t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBxZzGvZsx1uqPzH8Jq7EENJ131SiZbpsU"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "603414430717-j3bp6i774hiaa2nvg871tsq3k4ocel8t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

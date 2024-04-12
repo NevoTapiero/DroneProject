@@ -3,7 +3,8 @@
     android:color="@color/light_gray"> <!-- Ripple color -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/button_color" />
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="2dp" android:color="@color/chocolate" />
             <corners android:radius="5dp" />
         </shape>
     </item>

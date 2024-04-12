@@ -12,4 +12,7 @@
     <color name="dark_gray">#80000000</color>
     <color name="light_gray">#B3FFFFFF</color>
     <color name="medium_blue">#298080</color>
+    <color name="button_color">#5FA46A</color>
+    <color name="text_color">#39543D</color>
+    <color name="chocolate">#88391A</color>
 </resources>

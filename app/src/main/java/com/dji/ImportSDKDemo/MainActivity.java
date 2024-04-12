@@ -473,9 +473,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
 
-
-
-
     private void showToast(final String toastMsg) {
 
         Handler handler = new Handler(Looper.getMainLooper());

@@ -131,7 +131,7 @@
         android:layout_width="150dp"
         android:layout_height="55dp"
         android:layout_centerHorizontal="true"
-        android:background="@drawable/round_btn"
+        android:background="@drawable/btn_rounded_states"
         android:text="Go Fly"
         android:layout_marginTop="60dp"
         android:layout_below="@+id/tv_activation_state_info"

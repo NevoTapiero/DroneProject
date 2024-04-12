@@ -38,6 +38,8 @@ import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
 import com.dji.ImportSDKDemo.HistoryLog.LogManager;
 import com.dji.ImportSDKDemo.Library.LibraryActivity;
 import com.dji.ImportSDKDemo.Services.UploadForegroundService;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -81,7 +83,6 @@ public class ClassificationActivity extends AppCompatActivity {
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
 
-    //--------------------------------------------------------
     private String batchId;
 
     Boolean fromOnDestroy = false;
@@ -93,7 +94,8 @@ public class ClassificationActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private ProgressBar progressBarPerImage;
     private RecyclerView rvLogEntry;
-
+    private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
+    private final FirebaseUser user = mAuth.getCurrentUser();
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private final DocumentReference firebaseRef = db.collection("count_classified_classes").document("countDict");
 
@@ -633,7 +635,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private void upLoadImages(Uri selectedImageUri, int totalFiles) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("unclassified/" + imageName);
+        StorageReference imageRef = storageRef.child("Users/"+ Objects.requireNonNull(user).getUid() + "/unclassified/" + imageName);
         imageRef.putFile(selectedImageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
                             if (ContextCompat.checkSelfPermission(this.getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -643,7 +645,6 @@ public class ClassificationActivity extends AppCompatActivity {
                             Map<String, Object> docData = new HashMap<>();
                             docData.put("imageUrl", downloadUri.toString());
                             docData.put("imageName", imageName);
-                            docData.put("imagePath", selectedImageUri.getPath());
                             docData.put("classTag", "unclassified");
 
                             Date timestamp = extractImageTime(selectedImageUri);
@@ -662,6 +663,8 @@ public class ClassificationActivity extends AppCompatActivity {
                             // Save image data within a specific batch
                             // Use a document for batch with a sub-collection for images
                             FirebaseFirestore.getInstance()
+                                    .collection("Users")
+                                    .document(user.getUid())
                                     .collection("unclassified")
                                     .document(batchId) // This is the batch document
                                     .collection("images") // Sub-collection for images within the batch

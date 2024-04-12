@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat;
 
 import com.dji.ImportSDKDemo.CameraHandler;
 import com.dji.ImportSDKDemo.R;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
@@ -60,6 +62,8 @@ public class UploadForegroundService extends Service {
     private NotificationManager notificationManager;
     private File cacheDir;
     private MediaManager mMediaManager;
+    private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
+    private final FirebaseUser user = mAuth.getCurrentUser();
     @Override
     public void onCreate() {
         super.onCreate();
@@ -375,7 +379,7 @@ public class UploadForegroundService extends Service {
     private void upLoadImages(File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
         String imageName = UUID.randomUUID().toString();
-        StorageReference imageRef = storageRef.child("unclassified/" + imageName);
+        StorageReference imageRef = storageRef.child("Users/"+ Objects.requireNonNull(user).getUid() + "/unclassified/" + imageName);
         Uri imageUri = Uri.fromFile(file);
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
@@ -386,7 +390,6 @@ public class UploadForegroundService extends Service {
                             Map<String, Object> docData = new HashMap<>();
                             docData.put("imageUrl", downloadUri.toString());
                             docData.put("imageName", imageName);
-                            docData.put("imagePath", file.getAbsolutePath());
                             docData.put("classTag", "unclassified");
 
                             Date timestamp = extractImageTime(file);
@@ -405,6 +408,8 @@ public class UploadForegroundService extends Service {
                             // Save image data within a specific batch
                             // Use a document for batch with a sub-collection for images
                             FirebaseFirestore.getInstance()
+                                    .collection("Users")
+                                    .document(user.getUid())
                                     .collection("unclassified")
                                     .document(batchId) // This is the batch document
                                     .collection("images") // Sub-collection for images within the batch

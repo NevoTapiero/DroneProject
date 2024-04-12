@@ -1,7 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.ImportSDKDemo" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+
+    </style>
+
+    <!-- Splash Screen Theme -->
+    <style name="Theme.App.Starting" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Use your logo here -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/logo</item>
+        <!-- Background color of the splash screen -->
+        <item name="android:windowSplashScreenBackground">@color/white</item>
+        <!-- Optionally, specify the duration of the splash screen animation -->
+        <item name="android:windowSplashScreenAnimationDuration">3000</item>
+        <!-- Theme to apply after the splash screen -->
+        <item name="postSplashScreenTheme">@style/Theme.ImportSDKDemo</item>
+    </style>
+
+    <!-- Your main app theme that gets applied after the splash screen -->
+    <style name="Theme.ImportSDKDemo" parent="Base.Theme.ImportSDKDemo">
+        <!-- Application theme customizations -->
     </style>
 </resources>

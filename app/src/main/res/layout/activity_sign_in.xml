@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:padding="16dp">
+
+
+    <!-- Welcome Back Text -->
+
+    <TextView
+        android:id="@+id/welcomeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="15dp"
+        android:text="@string/welcome_back"
+        android:textSize="30sp"
+        android:textColor="@color/text_color" />
+
+    <!-- Logo -->
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_below="@id/welcomeText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:src="@drawable/logo" />
+
+    <!-- Sign in Text -->
+    <TextView
+        android:id="@+id/signInText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="5dp"
+        android:text="@string/please_log_into_your_account"
+        android:textSize="25sp"
+        android:layout_below="@id/logo"
+        android:textColor="@color/text_color" />
+
+
+    <!-- Email Input -->
+    <EditText
+        android:id="@+id/emailInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/signInText"
+        android:inputType="textEmailAddress"
+        android:textColorHint="@color/chocolate"
+        android:hint="@string/email" />
+
+    <!-- Password Input -->
+    <EditText
+        android:id="@+id/passwordInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/emailInput"
+        android:textColorHint="@color/chocolate"
+        android:inputType="textPassword"
+        android:hint="@string/password" />
+
+    <!-- Forgot Password Text -->
+    <TextView
+        android:id="@+id/forgotPasswordText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/chocolate"
+        android:layout_below="@id/passwordInput"
+        android:text="@string/forgot_your_password"/>
+
+    <!-- Log In Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/logInButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/forgotPasswordText"
+        android:layout_marginTop="24dp"
+        android:textColor="@color/white"
+        android:text="@string/log_in"
+        android:backgroundTint="@null"
+        android:background="@drawable/btn_rounded_states"/>
+
+    <!-- Or Text -->
+    <TextView
+        android:id="@+id/option"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="5dp"
+        android:text="@string/or"
+        android:textColor="@color/chocolate"
+        android:textSize="15sp"
+        android:layout_below="@id/logInButton"/>
+
+    <!-- Google Sign In Button -->
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/googleSignInButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/option"
+        android:layout_marginTop="5dp" />
+
+
+    <!-- Create Account Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/createAccountButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/googleSignInButton"
+        android:layout_marginTop="100dp"
+        android:textColor="@color/chocolate"
+        android:background="@drawable/button_outline"
+        android:backgroundTint="@null"
+        android:text="@string/create_account"/>
+
+
+
+</RelativeLayout>

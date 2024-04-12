@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:padding="16dp">
+
+    <!-- Welcome Text -->
+    <TextView
+        android:id="@+id/welcomeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="15dp"
+        android:text="Welcome!"
+        android:textSize="30sp"
+        android:textColor="@color/text_color" />
+
+    <!-- Logo -->
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_below="@id/welcomeText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:src="@drawable/logo" />
+
+    <!-- Create Your Account Text -->
+    <TextView
+        android:id="@+id/createYourAccountText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/logo"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="Create your account"
+        android:textSize="24sp"
+        android:textColor="@color/text_color" />
+
+    <!-- First Name Input -->
+    <EditText
+        android:id="@+id/firstNameInput"
+        android:layout_width="179dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/createYourAccountText"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="16dp"
+        android:ems="10"
+        android:textColorHint="@color/chocolate"
+        android:hint="First Name"
+        android:inputType="textPersonName" />
+
+    <!-- Last Name Input -->
+
+    <!-- Email Input -->
+    <EditText
+        android:id="@+id/lastNameInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/createYourAccountText"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="16dp"
+        android:layout_toEndOf="@id/firstNameInput"
+        android:ems="10"
+        android:textColorHint="@color/chocolate"
+        android:hint="Last Name"
+        android:inputType="textPersonName" />
+
+    <EditText
+        android:id="@+id/emailInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/lastNameInput"
+        android:hint="Email"
+        android:textColorHint="@color/chocolate"
+        android:inputType="textEmailAddress" />
+
+    <!-- Re-Enter Email Input -->
+    <EditText
+        android:id="@+id/reEnterEmailInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/emailInput"
+        android:hint="Re-Enter Email"
+        android:textColorHint="@color/chocolate"
+        android:inputType="textEmailAddress" />
+
+    <!-- Password Input -->
+    <EditText
+        android:id="@+id/passwordInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/reEnterEmailInput"
+        android:hint="Password"
+        android:textColorHint="@color/chocolate"
+        android:inputType="textPassword" />
+
+    <!-- Re-Enter Password Input -->
+    <EditText
+        android:id="@+id/reEnterPasswordInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/passwordInput"
+        android:textColorHint="@color/chocolate"
+        android:hint="Re-Enter Password"
+        android:inputType="textPassword" />
+
+    <!-- Sign Up Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/signUpButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/reEnterPasswordInput"
+        android:layout_marginTop="16dp"
+        android:textColor="@color/white"
+
+        android:background="@drawable/btn_rounded_states"
+        android:text="Sign Up" />
+
+    <!-- Google Sign In Button -->
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/googleSignInButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/signUpButton"
+        android:layout_marginTop="16dp" />
+
+    <!-- Sign In Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/createAccountButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/googleSignInButton"
+        android:layout_marginTop="50dp"
+        android:textColor="@color/chocolate"
+        android:background="@drawable/button_outline"
+        android:backgroundTint="@null"
+        android:text="@string/log_in"/>
+
+</RelativeLayout>
