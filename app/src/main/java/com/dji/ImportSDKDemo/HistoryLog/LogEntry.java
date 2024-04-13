@@ -1,17 +1,17 @@
 package com.dji.ImportSDKDemo.HistoryLog;
 
 public class LogEntry {
-    private final String timestamp;
+    private final StringBuilder batchName;
     private final String message;
 
-    public LogEntry(String timestamp, String message) {
-        this.timestamp = timestamp;
+    public LogEntry(StringBuilder batchName, String message) {
+        this.batchName = batchName;
         this.message = message;
     }
 
 
-    public String getTimestamp() {
-        return timestamp;
+    public StringBuilder getBatchName() {
+        return batchName;
     }
 
 

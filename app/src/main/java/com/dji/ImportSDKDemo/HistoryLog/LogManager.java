@@ -69,7 +69,7 @@ public class LogManager {
                 JSONArray newLogsArray = new JSONArray();
                 // Create a new log entry and insert at start
                 JSONObject newLog = new JSONObject();
-                newLog.put("timestamp", newLogEntry.getTimestamp());
+                newLog.put("batchName", newLogEntry.getBatchName());
                 newLog.put("message", newLogEntry.getMessage());
                 newLogsArray.put(newLog);
                 for (int i = 0; i < logsArray.length(); i++) {
@@ -79,7 +79,7 @@ public class LogManager {
             } else {
                 logsArray = new JSONArray();
                 JSONObject newLog = new JSONObject();
-                newLog.put("timestamp", newLogEntry.getTimestamp());
+                newLog.put("batchName", newLogEntry.getBatchName());
                 newLog.put("message", newLogEntry.getMessage());
                 logsArray.put(newLog);
             }
@@ -114,9 +114,9 @@ public class LogManager {
                 // Convert the JSONArray into a list of LogEntry objects
                 for (int i = 0; i < logsArray.length(); i++) {
                     JSONObject logObject = logsArray.getJSONObject(i);
-                    String timestamp = logObject.getString("timestamp");
+                    StringBuilder batchName = new StringBuilder(logObject.getString("batchName"));
                     String message = logObject.getString("message");
-                    logEntries.add(new LogEntry(timestamp, message));
+                    logEntries.add(new LogEntry(batchName, message));
                 }
             }
         } catch (Exception e) {

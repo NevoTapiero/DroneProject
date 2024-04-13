@@ -16,7 +16,7 @@ import java.util.List;
 public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
 
     private final List<LogEntry> logEntries;
-    private OnItemClickListener listener;
+    private final OnItemClickListener listener;
 
     public LogAdapter(List<LogEntry> logEntries, OnItemClickListener listener) {
         this.logEntries = logEntries;
@@ -50,14 +50,9 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull LogViewHolder holder, int position) {
         LogEntry logEntry = logEntries.get(position);
-        holder.timestampTextView.setText(logEntry.getTimestamp());
+        holder.batchNameTextView.setText(logEntry.getBatchName());
         holder.messageTextView.setText(logEntry.getMessage());
-        holder.itemView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                listener.onItemClick(logEntry);
-            }
-        });
+        holder.itemView.setOnClickListener(v -> listener.onItemClick(logEntry));
     }
 
     @Override
@@ -66,11 +61,11 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
     }
 
     public static class LogViewHolder extends RecyclerView.ViewHolder {
-        TextView timestampTextView, messageTextView;
+        TextView batchNameTextView, messageTextView;
 
         LogViewHolder(View itemView) {
             super(itemView);
-            timestampTextView = itemView.findViewById(R.id.timestampTextView);
+            batchNameTextView = itemView.findViewById(R.id.timestampTextView);
             messageTextView = itemView.findViewById(R.id.messageTextView);
         }
     }

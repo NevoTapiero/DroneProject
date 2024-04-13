@@ -115,6 +115,19 @@
         android:backgroundTint="@null"
         android:text="@string/create_account"/>
 
+    <ProgressBar
+        android:id="@+id/loadingProgressBar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:visibility="invisible" />
 
+    <FrameLayout
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0000ffff"
+        android:visibility="gone" />
 
 </RelativeLayout>

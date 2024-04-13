@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.IBinder;
 import android.support.media.ExifInterface;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -55,12 +56,13 @@ public class UploadForegroundService extends Service {
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     Boolean fromOnDestroy = false;
     private String batchId;
+    private String bactchTimeStamp;
+
     private int successfulUploads = 0; // Counter for successful uploads
     int totalFiles;
     private static final String CHANNEL_ID = "ForegroundServiceChannel";
     private File destDir; // Declare here, but don't initialize yet
     private NotificationManager notificationManager;
-    private File cacheDir;
     private MediaManager mMediaManager;
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
@@ -70,8 +72,6 @@ public class UploadForegroundService extends Service {
 
         notificationManager = getSystemService(NotificationManager.class);
         createNotificationChannel();
-
-        cacheDir = new File(getExternalFilesDir(null), "DJI/com.dji.ImportSDKDemo/CACHE_IMAGE");
 
         // Initialize destDir here, where the context is ready
         destDir = new File(getExternalFilesDir(null), "Pictures");
@@ -86,12 +86,20 @@ public class UploadForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            // Retrieve the batch ID passed to the service
+            batchId = intent.getStringExtra("BatchID");
+        } else {
+            Log.e("UploadService", "Intent is null, service not started via startForegroundService");
+        }
+
         Intent startLoadingIntent = new Intent(ACTION_START_LOADING);
         sendBroadcast(startLoadingIntent);
+
         // Call updateNotification at the beginning to setup foreground service
         updateNotification();
 
-        batchId = generateBatchId(); // Ensure this generates a unique ID for each batch
+        bactchTimeStamp = generateBatchTimeStamp(); // Ensure this generates a unique ID for each batch
 
         initMediaManager();
 
@@ -106,7 +114,7 @@ public class UploadForegroundService extends Service {
     }
 
 
-    public static String generateBatchId() {
+    public static String generateBatchTimeStamp() {
         // Define the date format
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
 
@@ -123,7 +131,8 @@ public class UploadForegroundService extends Service {
         if (product != null) {
             setCameraMode();
         } else {
-            handleMediaManagerError("Drone Disconnected, please reconnect the drone and try again");
+            showToastService("Drone Disconnected, please reconnect the drone and try again");
+            stopSelf();
         }
     }
 
@@ -177,7 +186,7 @@ public class UploadForegroundService extends Service {
             mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
         }
 
-        ensureFilesAreReady();
+        downloadAllImageFiles();
     }
 
 
@@ -211,12 +220,13 @@ public class UploadForegroundService extends Service {
                 break;
             case RESET:
                 currentFileListState = state;
-                handleMediaManagerError("The file list is reset. please try again");
+                showToastService("The file list is reset. please try again");
+                stopSelf();
 
                 break;
             case RENAMING:
-            currentFileListState = state;
-            showToastService("A renaming operation is in progress.");
+                currentFileListState = state;
+                showToastService("A renaming operation is in progress.");
 
             break;
             case UNKNOWN:
@@ -230,55 +240,6 @@ public class UploadForegroundService extends Service {
     };
 
 
-
-    private void ensureFilesAreReady() {
-        final int maxAttempts = 10; // Max number of attempts to check file readiness
-        final long waitTimeMillis = 1000; // Wait time between checks, e.g., 4 seconds
-
-        boolean allFilesReady = false;
-        int attemptCounter = 0;
-
-        while (!allFilesReady && attemptCounter < maxAttempts) {
-            allFilesReady = true; // Assume all files are ready, and verify in the loop below.
-
-            // Check each file in the list to see if it's ready (e.g., fileSize > 0)
-            for (MediaFile mediaFile : mediaFileList) {
-                if (mediaFile.getFileSize() <= 0) {
-                    allFilesReady = false; // Found a file that's not ready.
-                    break; // No need to check further files this round.
-                }
-            }
-
-            if (!allFilesReady) {
-                try {
-                    Thread.sleep(waitTimeMillis); // Wait before checking again.
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return; // Exit if the thread was interrupted during sleep.
-                }
-
-                attemptCounter++;
-                Intent notifyTriesIntent = new Intent(ACTION_NOTIFY_TRIES);
-                notifyTriesIntent.putExtra("message", "Media file list incomplete. Attempt #" + attemptCounter);
-                sendBroadcast(notifyTriesIntent);
-            }
-        }
-
-        if (allFilesReady) {
-            Intent notifyTriesIntent = new Intent(ACTION_NOTIFY_TRIES);
-            notifyTriesIntent.putExtra("message", "Media file list synchronized. Attempt #" + attemptCounter);
-            sendBroadcast(notifyTriesIntent);
-            // Proceed with processing the files as they are all ready.
-            downloadAllImageFiles();
-        } else {
-            // Handle the scenario where not all files are ready after the maximum attempts.
-            handleMediaManagerError( "Media file list incomplete.");
-        }
-    }
-
-
-
-
     private void downloadAllImageFiles() {
         if (mediaFileList != null) {
             // Total number of files to download
@@ -288,13 +249,17 @@ public class UploadForegroundService extends Service {
                     if (mediaFile.getMediaType() == MediaFile.MediaType.JPEG) { // Ensure it's an image file
                         downloadMediaFile(mediaFile);
                     }
-                //}
+            }
+
+            // Upload to Firebase
+            if (Objects.requireNonNull(destDir.listFiles()).length > 0) {
+                uploadAllImageFiles(destDir);
             }
 
         } else {
             //no files
-            handleMediaManagerError( "No files to download");
-
+            showToastService( "No files to download");
+            stopSelf();
         }
 
     }
@@ -329,13 +294,7 @@ public class UploadForegroundService extends Service {
                 public void onSuccess(String filePath) {
                     Intent stopLoadingIntentPerImage = new Intent(ACTION_STOP_LOADING_PER_IMAGE);
                     sendBroadcast(stopLoadingIntentPerImage);
-                    // Upload to Firebase
-                    if (Objects.requireNonNull(destDir.listFiles()).length > 0) {
-                        uploadAllImageFiles(destDir);
-                    }
-                    if (Objects.requireNonNull(cacheDir.listFiles()).length > 0){
-                        moveFilesLocation();
-                    }
+
                 }
 
                 @Override
@@ -357,24 +316,6 @@ public class UploadForegroundService extends Service {
             }
         }
     }
-
-    private void moveFilesLocation() {
-        File[] files = destDir.listFiles();
-        File newFile;
-        if (files != null) {
-            for (File file : files) {
-                newFile = new File(destDir, file.getName());
-                if (file.renameTo(newFile)) {
-                    if(file.delete()){
-                        showToastService("File Moved:" + file.getName());
-                    }
-                }
-            }
-        }
-    }
-
-
-
 
     private void upLoadImages(File file) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
@@ -403,6 +344,19 @@ public class UploadForegroundService extends Service {
                                 docData.put("latitude", null);
                                 docData.put("longitude", null);
                             }
+
+                            Map<String, Object> batchDocData = new HashMap<>();
+                            batchDocData.put("timestamp", bactchTimeStamp);
+
+                            FirebaseFirestore.getInstance()
+                                    .collection("Users")
+                                    .document(user.getUid())
+                                    .collection("unclassified")
+                                    .document(batchId)
+                                    .set(batchDocData)
+                                    .addOnSuccessListener(documentReference -> {
+                                    })
+                                    .addOnFailureListener(e -> showToastService("Error adding document: " + e.getMessage()));
 
 
                             // Save image data within a specific batch
@@ -643,12 +597,7 @@ public class UploadForegroundService extends Service {
         });
     }
 
-    private void handleMediaManagerError(String message) {
-        Intent stopLoadingIntent = new Intent(ACTION_STOP_LOADING);
-        stopLoadingIntent.putExtra("message", message);
-        sendBroadcast(stopLoadingIntent);
-        stopSelf(); // Call this to stop the service
-    }
+
 
     private void updateProgress(int progress) {
         Intent progressUpdateBar = new Intent("ACTION_PROGRESS_UPDATE");

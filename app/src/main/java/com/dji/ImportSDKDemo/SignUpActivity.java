@@ -4,7 +4,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -46,6 +49,7 @@ public class SignUpActivity extends AppCompatActivity {
     private SignInButton googleSignInButton;
     private AppCompatButton createAccountButton;
     private FirebaseFirestore db;
+    private ProgressBar mProgressBar;
 
 
     @Override
@@ -81,6 +85,8 @@ public class SignUpActivity extends AppCompatActivity {
         signUpButton = findViewById(R.id.signUpButton);
         googleSignInButton = findViewById(R.id.googleSignInButton);
         createAccountButton = findViewById(R.id.createAccountButton);
+        mProgressBar = findViewById(R.id.loadingProgressBar);
+
     }
 
     private void setupListeners() {
@@ -184,6 +190,8 @@ public class SignUpActivity extends AppCompatActivity {
                             db.collection("Users").document(user.getUid())
                                     .set(userData)
                                     .addOnSuccessListener(aVoid -> {
+                                        mProgressBar.setVisibility(View.VISIBLE);
+                                        setScreenTouchable(false);
                                         Log.d(TAG, "DocumentSnapshot successfully written!");
                                         Toast.makeText(SignUpActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
 
@@ -210,6 +218,15 @@ public class SignUpActivity extends AppCompatActivity {
         userData.put("lastName", user.getDisplayName().split(" ").length > 1 ? user.getDisplayName().split(" ")[1] : ""); // Assuming the last name is the second part of the Display Name
         userData.put("email", user.getEmail());
         return userData;
+    }
+
+    public void setScreenTouchable(boolean touchable) {
+        FrameLayout overlay = findViewById(R.id.overlay);
+        if (touchable) {
+            overlay.setVisibility(View.GONE); // Hide overlay to enable touch events
+        } else {
+            overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
+        }
     }
 
 

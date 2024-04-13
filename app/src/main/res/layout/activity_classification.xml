@@ -25,8 +25,8 @@
         android:layout_height="82dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginEnd="75dp"
-        android:layout_marginBottom="527dp"
+        android:layout_marginEnd="59dp"
+        android:layout_marginBottom="557dp"
         android:text="Upload the drone files to Firebase"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
@@ -38,12 +38,13 @@
         android:layout_height="65dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginEnd="241dp"
-        android:layout_marginBottom="450dp"
+        android:layout_marginEnd="239dp"
+        android:layout_marginBottom="472dp"
         android:text="Scan"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
+
 
     <Button
         android:id="@+id/libraryButton"
@@ -51,13 +52,12 @@
         android:layout_height="62dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginEnd="201dp"
-        android:layout_marginBottom="377dp"
+        android:layout_marginEnd="197dp"
+        android:layout_marginBottom="399dp"
         android:text="Go to Library"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
-
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvLogHistory"
@@ -145,12 +145,6 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
-    <FrameLayout
-        android:id="@+id/overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#33000000"
-        android:visibility="gone" />
 
     <Button
         android:id="@+id/btnCheckMode"
@@ -158,9 +152,29 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
-        android:layout_marginTop="231dp"
-        android:layout_marginEnd="18dp"
+        android:layout_marginTop="18dp"
+        android:layout_marginEnd="29dp"
         android:text="Check Camera Mode" />
+
+    <Button
+        android:id="@+id/selectBatchesButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="197dp"
+        android:layout_marginEnd="65dp"
+        android:text="Select Batch" />
+
+    <FrameLayout
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0000ffff"
+        android:visibility="gone" />
+
+
+
 
 </RelativeLayout>
 

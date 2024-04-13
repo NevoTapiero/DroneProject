@@ -3,6 +3,7 @@ package com.dji.ImportSDKDemo;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.Context;
@@ -12,12 +13,21 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.support.media.ExifInterface;
+import android.text.InputType;
 import android.util.Log;
+import android.util.SparseBooleanArray;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,13 +52,19 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -59,6 +75,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import dji.common.camera.SettingsDefinitions;
@@ -77,14 +95,14 @@ import dji.sdk.sdkmanager.DJISDKManager;
 
 public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
-    //public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
     private int successfulUploads = 0; // Counter for successful uploads
     private TextView tvLoadingProgressBar;
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
-
+    private final List<String> selectedBatches = new ArrayList<>();
     private String batchId;
-
+    private String bactchTimeStamp;
+    private StringBuilder logBatch = new StringBuilder();
     Boolean fromOnDestroy = false;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     ProgressBar mProgressBar;
@@ -97,15 +115,12 @@ public class ClassificationActivity extends AppCompatActivity {
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
-    private final DocumentReference firebaseRef = db.collection("count_classified_classes").document("countDict");
+    private final DocumentReference firebaseRef = db.collection("Users").document(Objects.requireNonNull(user).getUid()).collection("count_classified_classes").document("countDict");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
-
-
-
 
         //for resetting the JSON file and testing
         //LogManager.deleteJSON(getApplicationContext());
@@ -132,12 +147,11 @@ public class ClassificationActivity extends AppCompatActivity {
         registerSDK();
 
 
-
     }
 
 
 
-    public static String generateBatchId() {
+    public static String generateBatchTimeStamp() {
         // Format the current date and time according to the specified format and return it
         return new SimpleDateFormat("yyyy.MM.dd => HH:mm:ss", Locale.getDefault()).format(new Date());
     }
@@ -173,7 +187,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 showToast("Product Connected");
                 onProductReconnected();
                 mProgressBar.setVisibility(View.VISIBLE);
-                tvLoadingProgressBar.setText(R.string.drone_disconnected);
+                tvLoadingProgressBar.setText(R.string.drone_connected);
             }
 
 
@@ -219,7 +233,14 @@ public class ClassificationActivity extends AppCompatActivity {
         checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());
 
         Button scanButton = findViewById(R.id.scanButton);
-        scanButton.setOnClickListener(v -> initiateScanning());
+        scanButton.setOnClickListener(v -> {
+            if (selectedBatches.isEmpty()) {
+                showToast("Please select at least one batch to scan");
+            }else {
+                Toast.makeText(this, selectedBatches.toString(), Toast.LENGTH_SHORT).show();
+                initiateScanning(user.getUid(), selectedBatches);
+            }
+        });
 
         Button libraryButton = findViewById(R.id.libraryButton);
         libraryButton.setOnClickListener(v -> startActivity(new Intent(this, LibraryActivity.class)));
@@ -232,6 +253,8 @@ public class ClassificationActivity extends AppCompatActivity {
                 showToast("Drone Disconnected, please reconnect the drone and try again");
         });
 
+        Button selectBatchesButton = findViewById(R.id.selectBatchesButton);
+        selectBatchesButton.setOnClickListener(v -> loadBatches());
 
 
         mListAdapter = new FileListAdapter(mediaFileList);
@@ -261,19 +284,11 @@ public class ClassificationActivity extends AppCompatActivity {
             tvLoadingProgressBar.setText(R.string.drone_disconnected);
     }
 
-
-
-    private void proceedWithNotification() {
-        showToast(String.valueOf(mediaFileList.size()));
-        progressBar.setMax(mediaFileList.size());
-        startUploadService();
-    }
-
     private void startUploadService() {
         Intent serviceIntent = new Intent(this, UploadForegroundService.class);
-        serviceIntent.putExtra("inputExtra", "Performing upload in foreground");
-        ContextCompat.startForegroundService(this, serviceIntent);
+        serviceIntent.putExtra("BatchID", batchId);
 
+        ContextCompat.startForegroundService(this, serviceIntent);
     }
 
 
@@ -567,46 +582,64 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void launchImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        imagePickerLauncher.launch(intent);
+        bactchTimeStamp = generateBatchTimeStamp();
+        askForBatchName(this); // Ensure this generates a unique ID for each batch
     }
 
-    private void initiateScanning() {
-        new Thread(() -> {
-            runOnUiThread(() -> showLoading(false));
 
+    private void initiateScanning(String userID, List<String> batches) {
+        Executor executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(() -> showLoading(false));
+        executor.execute(() -> {
             HttpURLConnection urlConnection = null;
             try {
-
-                urlConnection = (HttpURLConnection) new URL("https://europe-west1-msdk-app-3a2d5.cloudfunctions.net/image_classification").openConnection();
+                URL url = new URL("https://europe-west1-msdk-app-3a2d5.cloudfunctions.net/image_classification");
+                urlConnection = (HttpURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("POST");
                 urlConnection.setRequestProperty("Content-Type", "application/json; utf-8");
                 urlConnection.setDoOutput(true);
                 urlConnection.setDoInput(true);
 
+                // Create JSON payload
+                JSONObject payload = new JSONObject();
+                payload.put("user_id", userID);
+                payload.put("batches", new JSONArray(batches));
+                String jsonInputString = payload.toString();
+
+                // Write JSON payload to output stream
+                try (OutputStream os = urlConnection.getOutputStream()) {
+                    byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
+                }
+
+                // Read the response from the server
                 int responseCode = urlConnection.getResponseCode();
-                runOnUiThread(() -> {
+
+                handler.post(() -> {
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         Toast.makeText(ClassificationActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
+                        buildLogBatch();
                         fetchClassificationCounts();
-                        hideLoading();
-
+                        selectedBatches.clear();
                     } else {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
+                    hideLoading();  // Ensure hiding loading indicator on both success and failure
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Scan initiation failed: ", e);
-                runOnUiThread(() -> Toast.makeText(ClassificationActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                handler.post(() -> {
+                    Toast.makeText(ClassificationActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    hideLoading();  // Ensure hiding loading indicator on exception as well
+                });
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
                 }
             }
-        }).start();
+        });
     }
-
 
 
     private void showToast(String message) {
@@ -614,7 +647,6 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void handleImageSelection(Intent data) {
-        batchId = generateBatchId(); // Ensure this generates a unique ID for each batch
         ClipData clipData = data.getClipData();
         if (clipData != null) {
             int totalFiles = clipData.getItemCount();
@@ -630,7 +662,73 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     }
 
+    private void askForBatchName(Activity context) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Enter Batch Name");
 
+        // Set up the input
+        final EditText input = new EditText(context);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String batchName = input.getText().toString();
+            if (!batchName.isEmpty()) {
+                handleBatchName(batchName);
+            } else {
+                Toast.makeText(context, "Batch name cannot be empty", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        builder.show();
+
+    }
+
+    private void handleBatchName(String batchName) {
+        Log.d("BatchName", "Received batch name: " + batchName);
+        batchId = batchName;
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        imagePickerLauncher.launch(intent);
+    }
+
+
+
+    private void askForBatchNameDrone(Activity context) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Enter Batch Name");
+
+        // Set up the input
+        final EditText input = new EditText(context);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String batchName = input.getText().toString();
+            if (!batchName.isEmpty()) {
+                handleBatchNameDrone(batchName);
+            } else {
+                Toast.makeText(context, "Batch name cannot be empty", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        builder.show();
+
+    }
+
+    private void handleBatchNameDrone(String batchName) {
+        Log.d("BatchName", "Received batch name: " + batchName);
+        batchId = batchName;
+        showToast(String.valueOf(mediaFileList.size()));
+        progressBar.setMax(mediaFileList.size());
+        startUploadService();
+    }
 
     private void upLoadImages(Uri selectedImageUri, int totalFiles) {
         StorageReference storageRef = FirebaseStorage.getInstance().getReference();
@@ -658,7 +756,18 @@ public class ClassificationActivity extends AppCompatActivity {
                                 docData.put("latitude", null);
                                 docData.put("longitude", null);
                             }
+                            Map<String, Object> batchDocData = new HashMap<>();
+                            batchDocData.put("timestamp", bactchTimeStamp);
 
+                            FirebaseFirestore.getInstance()
+                                    .collection("Users")
+                                    .document(user.getUid())
+                                    .collection("unclassified")
+                                    .document(batchId)
+                                    .set(batchDocData)
+                                    .addOnSuccessListener(documentReference -> {
+                                    })
+                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage()));
 
                             // Save image data within a specific batch
                             // Use a document for batch with a sub-collection for images
@@ -684,6 +793,9 @@ public class ClassificationActivity extends AppCompatActivity {
         // After each file download completion counting the successful uploads and updating the recycler view
         successfulUploads++;
         if(successfulUploads == totalFiles){
+            selectedBatches.clear();
+            selectedBatches.add(batchId);
+            buildLogBatch();
             updateImageCountUI(successfulUploads);
             successfulUploads = 0;
         }
@@ -708,6 +820,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> Log.e("Firestore", "Error getting classification counts", e));
     }
 
+
     /**
      * update the logManager with the message and the batch ID, and update the recycle view
      * @param classificationCounts - List of classification counts
@@ -717,10 +830,17 @@ public class ClassificationActivity extends AppCompatActivity {
 
         // Now 'message' contains the desired string, e.g., "you classified 3 images to class: class1, images to class: class2..."
         String message = messageBuilder.toString();
-        LogEntry logEntry = new LogEntry(batchId, message);
+        LogEntry logEntry = new LogEntry(logBatch ,message);
         LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
-
+        logBatch = new StringBuilder();
         updateLogInView();
+    }
+
+    private void buildLogBatch() {
+        for (int i = 0; i < selectedBatches.size(); i++) {
+            if (i > 0) logBatch.append(", "); // This will add a comma before each name except the first
+            logBatch.append(selectedBatches.get(i)); // selectedBatches is a List of Strings
+        }
     }
 
 
@@ -752,8 +872,9 @@ public class ClassificationActivity extends AppCompatActivity {
         }else {
             message = imageCount  + " images uploaded";
         }
-        LogEntry logEntry = new LogEntry(batchId, message);
+        LogEntry logEntry = new LogEntry(logBatch, message);
         LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
+        logBatch = new StringBuilder();
 
         updateLogInView();
     }
@@ -845,7 +966,7 @@ public class ClassificationActivity extends AppCompatActivity {
             }
             if (allPermissionsGranted) {
                 // All requested permissions are granted
-                    proceedWithNotification();
+                askForBatchNameDrone(this);
             } else {
                 // Notify the user that some permissions were denied
                 showToast("Some permissions were denied.");
@@ -878,7 +999,7 @@ public class ClassificationActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), REQUEST_PERMISSION_CODE);
         } else {
             // All permissions are granted, proceed with your functionality
-            proceedWithNotification();
+            askForBatchNameDrone(this);
         }
     }
 
@@ -895,7 +1016,9 @@ public class ClassificationActivity extends AppCompatActivity {
                     case UploadForegroundService.ACTION_STOP_LOADING:
                         String message = intent.getStringExtra("message");
                         int imageCount = intent.getIntExtra("imageCount", 0);
-                        batchId = intent.getStringExtra("batchID");
+                        selectedBatches.clear();
+                        selectedBatches.add(intent.getStringExtra("batchID"));
+                        buildLogBatch();
                         updateImageCountUI(imageCount);
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();
@@ -1001,6 +1124,79 @@ public class ClassificationActivity extends AppCompatActivity {
         } else {
             overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
         }
+    }
+
+
+    private void loadBatches() {
+        if (user != null) {
+            db.collection("Users").document(user.getUid()).collection("unclassified")
+                    .get()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            List<String> batchNames = new ArrayList<>();
+                            Log.d("Firestore Success", user.getUid());  // Log each batch ID
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                batchNames.add(document.getId());
+                                Log.d("Firestore Success", "Batch ID: " + document.getId());  // Log each batch ID
+                            }
+                            if (batchNames.isEmpty()) {
+                                Log.d("Firestore", "No batches found");
+                                Toast.makeText(this, "you have 0 batches to classify", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Log.d("Firestore", "you have " + batchNames.size() + " batches");
+                                showBatchSelectionDialog(batchNames);
+                            }
+                        } else {
+                            Log.d("Firestore Error", "Error getting documents: ", task.getException());
+                        }
+                    });
+        } else {
+            Log.d("Firestore", "User not logged in");
+            // Consider prompting user or handling login
+        }
+    }
+
+
+
+
+    private void showBatchSelectionDialog(List<String> batchNames) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Batches");
+
+        LayoutInflater inflater = getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_batch_selection, null);
+        ListView listView = dialogView.findViewById(R.id.listViewBatches);
+        CheckBox selectAllCheckbox = dialogView.findViewById(R.id.select_all_checkbox);
+
+        // Set up the adapter for the ListView
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_multiple_choice, batchNames);
+        listView.setAdapter(adapter);
+        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+
+        selectAllCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            for (int i = 0; i < batchNames.size(); i++) {
+                listView.setItemChecked(i, isChecked);
+            }
+        });
+
+        builder.setView(dialogView);
+
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            // Handle OK
+            SparseBooleanArray checkedItems = listView.getCheckedItemPositions();
+            selectedBatches.clear();
+            for (int i = 0; i < batchNames.size(); i++) {
+                if (checkedItems.get(i)) {
+                    selectedBatches.add(batchNames.get(i));
+                }
+            }
+            Toast.makeText(this, "You selected: " + selectedBatches.size() + " batches", Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> selectedBatches.clear());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
 
