@@ -4,7 +4,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-import com.dji.ImportSDKDemo.MainActivity;
+import com.dji.ImportSDKDemo.FlyActivity;
+
+import java.util.Objects;
 
 import dji.sdk.sdkmanager.DJISDKManager;
 
@@ -23,20 +25,20 @@ public class OnDJIUSBAttachedReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
 
         // Check if the MainActivity has been started.
-        if (!MainActivity.isStarted()) {
+        if (!FlyActivity.isStarted()) {
             // If MainActivity is not running, start the app with MainActivity in focus.
             // This ensures that the app starts normally when the USB accessory is attached.
             Intent startIntent = context.getPackageManager()
                     .getLaunchIntentForPackage(context.getPackageName());
 
             // Set flags to bring the existing activity instance to the front, or start a new instance if needed.
-            startIntent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            Objects.requireNonNull(startIntent).setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     | Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
             startIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             context.startActivity(startIntent);
 
-            MainActivity.setAppStarted(true);
+            FlyActivity.setAppStarted(true);
         } else {
             // If MainActivity is already running, broadcast a custom intent indicating that the USB accessory is attached.
             // This can be used by the app components to handle the USB accessory connection while the app is running.

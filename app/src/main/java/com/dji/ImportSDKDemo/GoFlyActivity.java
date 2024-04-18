@@ -25,9 +25,10 @@ import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
 import dji.sdk.useraccount.UserAccountManager;
 
+//TODO: Handle API level 30;
 public class GoFlyActivity extends Activity implements SurfaceTextureListener,OnClickListener{
 
-    private static final String TAG = MainActivity.class.getName();
+    private static final String TAG = FlyActivity.class.getName();
     protected VideoFeeder.VideoDataListener mReceivedVideoDataListener = null;
 
     // Codec for video live view

@@ -57,7 +57,7 @@
             android:exported="false" />
         <activity
             android:name=".ClassificationActivity"
-            android:exported="true" />
+            android:exported="true"/>
 
         <!-- DJI SDK -->
 
@@ -94,9 +94,10 @@
         </receiver>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".FlyActivity"
             android:configChanges="orientation"
-            android:exported="true" />
+            android:exported="true"/>
+
         <activity android:name=".GoFlyActivity" />
 
         <activity

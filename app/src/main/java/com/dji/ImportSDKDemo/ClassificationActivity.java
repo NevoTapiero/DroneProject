@@ -45,14 +45,14 @@ import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
 import com.dji.ImportSDKDemo.HistoryLog.LogAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
-import com.dji.ImportSDKDemo.HistoryLog.LogManager;
-import com.dji.ImportSDKDemo.Library.LibraryActivity;
 import com.dji.ImportSDKDemo.Services.UploadForegroundService;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
@@ -121,12 +121,6 @@ public class ClassificationActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
-
-        //for resetting the JSON file and testing
-        //LogManager.deleteJSON(getApplicationContext());
-
-
-        LogManager.initializeLogFile(getApplicationContext());
 
         progressBar = findViewById(R.id.downloadProgressBar);
         progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
@@ -225,12 +219,34 @@ public class ClassificationActivity extends AppCompatActivity {
 
     private void initializeUIComponents() {
 
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav.setSelectedItemId(R.id.nav_scan);
+
+
+        // Set listener for navigation item selection using if-else instead of switch
+        bottomNav.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.nav_fly) {
+                startActivity(new Intent(this, FlyActivity.class));
+
+            } else if (itemId == R.id.nav_scan) {
+
+            } else if (itemId == R.id.nav_gallery) {
+                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
+                startActivity(intent);*/
+            } else if (itemId == R.id.nav_profile) {
+                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
+                startActivity(intent);*/
+            }
+            return true;
+        });
+
 
         Button uploadButton = findViewById(R.id.uploadButton);
         uploadButton.setOnClickListener(v -> launchImagePicker());
 
-        Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
-        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());
+        /*Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
+        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
 
         Button scanButton = findViewById(R.id.scanButton);
         scanButton.setOnClickListener(v -> {
@@ -241,9 +257,6 @@ public class ClassificationActivity extends AppCompatActivity {
                 initiateScanning(user.getUid(), selectedBatches);
             }
         });
-
-        Button libraryButton = findViewById(R.id.libraryButton);
-        libraryButton.setOnClickListener(v -> startActivity(new Intent(this, LibraryActivity.class)));
 
         Button fetchAndUploadButton = findViewById(R.id.upload_btn_firebase);
         fetchAndUploadButton.setOnClickListener(v ->{
@@ -265,14 +278,24 @@ public class ClassificationActivity extends AppCompatActivity {
 
         rvLogEntry = findViewById(R.id.rvLogHistory);
         rvLogEntry.setLayoutManager(new LinearLayoutManager(this));
-        List<LogEntry> logEntries = LogManager.readLogsFromFile(getApplicationContext());
 
-        // Create the adapter and set it to the RecyclerView
-        LogAdapter logAdapter = new LogAdapter(logEntries, item -> {
-            Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
-            // Handle the click event, e.g., navigate to a different screen with the item details
+        fetchData(new FirestoreCallback() {
+            @Override
+            public void onComplete(List<LogEntry> result) {
+                // Create the adapter and set it to the RecyclerView
+                LogAdapter logAdapter = new LogAdapter(result, item -> {
+                    Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
+                    // Handle the click event, e.g., navigate to a different screen with the item details
+                });
+                rvLogEntry.setAdapter(logAdapter);
+            }
+
+            @Override
+            public void onError(String message) {
+                // Handle any errors, e.g., show an error message
+                Toast.makeText(getApplicationContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+            }
         });
-        rvLogEntry.setAdapter(logAdapter);
 
         mProgressBar = findViewById(R.id.loadingProgressBar);
 
@@ -283,6 +306,8 @@ public class ClassificationActivity extends AppCompatActivity {
         }else
             tvLoadingProgressBar.setText(R.string.drone_disconnected);
     }
+
+
 
     private void startUploadService() {
         Intent serviceIntent = new Intent(this, UploadForegroundService.class);
@@ -830,10 +855,12 @@ public class ClassificationActivity extends AppCompatActivity {
 
         // Now 'message' contains the desired string, e.g., "you classified 3 images to class: class1, images to class: class2..."
         String message = messageBuilder.toString();
-        LogEntry logEntry = new LogEntry(logBatch ,message);
-        LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
+        String logMessage = logBatch.toString();
+        LogEntry logEntry = new LogEntry(logMessage ,message);
+        uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
-        updateLogInView();
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.postDelayed(this::updateLogInView, 5000);
     }
 
     private void buildLogBatch() {
@@ -841,6 +868,7 @@ public class ClassificationActivity extends AppCompatActivity {
             if (i > 0) logBatch.append(", "); // This will add a comma before each name except the first
             logBatch.append(selectedBatches.get(i)); // selectedBatches is a List of Strings
         }
+        selectedBatches.clear();
     }
 
 
@@ -863,6 +891,59 @@ public class ClassificationActivity extends AppCompatActivity {
         return messageBuilder;
     }
 
+    public void uploadListToFirestore(LogEntry stringData) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        fetchData(new FirestoreCallback() {
+            @Override
+            public void onComplete(List<LogEntry> result) {
+                result.add(stringData);
+                Map<String, Object> logList = new HashMap<>();
+                logList.put("listEntries", result);
+
+                db.collection("Users").document(Objects.requireNonNull(user).getUid()).set(logList, SetOptions.merge())
+                        .addOnSuccessListener(aVoid -> Log.d("Firestore", "List successfully written!"))
+                        .addOnFailureListener(e -> Log.w("Firestore", "Error writing document", e));
+            }
+
+            @Override
+            public void onError(String message) {
+                // Handle any errors, e.g., show an error message
+                Toast.makeText(getApplicationContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+
+    public void fetchData(FirestoreCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("Users").document(user.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        List<LogEntry> entries = new ArrayList<>();
+                        @SuppressWarnings("unchecked") // Suppressing unchecked cast warning
+                        List<Map<String, Object>> rawEntries = (List<Map<String, Object>>) documentSnapshot.get("listEntries");
+                        if (rawEntries != null) {
+                            for (Map<String, Object> entry : rawEntries) {
+                                LogEntry logEntry = new LogEntry( Objects.requireNonNull(entry.get("batchName")).toString(), Objects.requireNonNull(entry.get("message")).toString());
+                                entries.add(logEntry);
+                            }
+                        }
+                        callback.onComplete(entries);
+                    } else {
+                        callback.onError("No document found");
+                    }
+                })
+                .addOnFailureListener(e -> callback.onError(e.getMessage()));
+    }
+
+
+
+    public interface FirestoreCallback {
+        void onComplete(List<LogEntry> result);
+        void onError(String message);
+    }
+
 
     // Helper method to update the UI with the image count
     private void updateImageCountUI(int imageCount) {
@@ -872,11 +953,13 @@ public class ClassificationActivity extends AppCompatActivity {
         }else {
             message = imageCount  + " images uploaded";
         }
-        LogEntry logEntry = new LogEntry(logBatch, message);
-        LogManager.appendLogToJsonFile(getApplicationContext(), logEntry);
+        String logMessage = logBatch.toString();
+        LogEntry logEntry = new LogEntry(logMessage, message);
+        uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
 
-        updateLogInView();
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        mainHandler.postDelayed(this::updateLogInView, 5000);
     }
 
 
@@ -889,15 +972,25 @@ public class ClassificationActivity extends AppCompatActivity {
             adapter.resetEntries();
         }
 
+        fetchData(new FirestoreCallback() {
+            @Override
+            public void onComplete(List<LogEntry> result) {
+                //syncing the adapter with the new data
+                if (adapter != null) {
+                    showToast("Log size: " + result.size());
+                    adapter.updateData(result);
+                }
+                //scroll to the top to show the newest entry
+                rvLogEntry.scrollToPosition(0);
+            }
 
-        //syncing the adapter with the new data
-        List<LogEntry> newLogEntries = LogManager.readLogsFromFile(getApplicationContext());
-        if (adapter != null) {
-            showToast("Log size: " + newLogEntries.size());
-            adapter.updateData(newLogEntries);
-        }
-        //scroll to the top to show the newest entry
-        rvLogEntry.scrollToPosition(0);
+            @Override
+            public void onError(String message) {
+                // Handle any errors, e.g., show an error message
+                Toast.makeText(getApplicationContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+
     }
 
 

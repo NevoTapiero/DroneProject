@@ -231,7 +231,7 @@ public class SignUpActivity extends AppCompatActivity {
 
 
     private void navigateToMain() {
-        Intent intent = new Intent(SignUpActivity.this, MainActivity.class);
+        Intent intent = new Intent(SignUpActivity.this, FlyActivity.class);
         startActivity(intent);
         finish();
     }

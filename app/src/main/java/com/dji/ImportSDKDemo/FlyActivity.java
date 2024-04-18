@@ -29,6 +29,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,9 +54,9 @@ import dji.thirdparty.afinal.core.AsyncTask;
 //todo - documentation to the whole project
 //todo - uml (class diagram + usecase diagram + top down diagram)
 //todo - up to 15/3 sorting log in the app
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class FlyActivity extends AppCompatActivity implements View.OnClickListener {
 
-    private static final String TAG = MainActivity.class.getName();
+    private static final String TAG = FlyActivity.class.getName();
     //a boolean flag to track SDK registration status
     private boolean isSDKRegistered = false;
     private AppActivationManager appActivationManager;
@@ -79,7 +81,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     };
     private final AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
     private static final int REQUEST_PERMISSION_CODE = 12345;
-    protected Button loginBtn, classifyButton, logoutBtn;
+    protected Button loginBtn, logoutBtn;
     protected TextView bindingStateTV, appActivationStateTV;
     private EditText bridgeModeEditText;
 
@@ -101,7 +103,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //Initialize DJI SDK Manager
         new Handler(Looper.getMainLooper());
 
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_fly);
 
         initUI();
 
@@ -167,6 +169,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void initUI(){
 
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav.setSelectedItemId(R.id.nav_fly);
+
+
+        // Set listener for navigation item selection using if-else instead of switch
+        bottomNav.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.nav_fly) {
+
+            } else if (itemId == R.id.nav_scan) {
+                startActivity(new Intent(this, ClassificationActivity.class));
+
+            } else if (itemId == R.id.nav_gallery) {
+                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
+                startActivity(intent);*/
+            } else if (itemId == R.id.nav_profile) {
+                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
+                startActivity(intent);*/
+            }
+            return true;
+        });
+
         bindingStateTV = findViewById(R.id.tv_binding_state_info);
         appActivationStateTV = findViewById(R.id.tv_activation_state_info);
         loginBtn = findViewById(R.id.btn_login);
@@ -180,19 +204,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mVersionTv.setText(getResources().getString(R.string.sdk_version, DJISDKManager.getInstance().getSDKVersion()));
 
 
-        Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
-        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());
+       /* Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
+        checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
 
 
         mBtnOpen = findViewById(R.id.btn_open);
         mBtnOpen.setOnClickListener(this);
         mBtnOpen.setEnabled(false);
-
-        classifyButton = findViewById(R.id.classify);
-        classifyButton.setOnClickListener(view -> {
-            Intent intent = new Intent(this, ClassificationActivity.class);
-            startActivity(intent);
-        });
 
         bridgeModeEditText = findViewById(R.id.edittext_bridge_ip);
         SharedPreferences sharedPreferences = this.getSharedPreferences("NPreference", Context.MODE_PRIVATE);
@@ -333,18 +351,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         // Check for notification permission on Android Tiramisu (API level 30) and above
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-            }
-        }
 
         // Check for notification permission on Android Tiramisu (API level 30) and above
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-            }
-        }
 
         // If there are permissions that need to be requested, request them
         if (!permissionsNeeded.isEmpty()) {
@@ -389,7 +397,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (isRegistrationInProgress.compareAndSet(false, true)) {
             AsyncTask.execute(() -> {
                 showToast("registering, pls wait...");
-                DJISDKManager.getInstance().registerApp(MainActivity.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
+                DJISDKManager.getInstance().registerApp(FlyActivity.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
                     @Override
                     public void onRegister(DJIError djiError) {
                         if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
@@ -489,7 +497,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (appActivationManager != null) {
             appActivationManager.addAppActivationStateListener(activationStateListener);
             appActivationManager.addAircraftBindingStateListener(bindingStateListener);
-            MainActivity.this.runOnUiThread(() -> {
+            FlyActivity.this.runOnUiThread(() -> {
                 appActivationStateTV.setText("" + appActivationManager.getAppActivationState());
                 bindingStateTV.setText("" + appActivationManager.getAircraftBindingState());
             });
@@ -499,20 +507,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @SuppressLint("SetTextI18n")
     private void setUpListener() {
         // Example of Listener
-        activationStateListener = appActivationState -> MainActivity.this.runOnUiThread(() -> appActivationStateTV.setText("" + appActivationState));
+        activationStateListener = appActivationState -> FlyActivity.this.runOnUiThread(() -> appActivationStateTV.setText("" + appActivationState));
 
-        bindingStateListener = bindingState -> MainActivity.this.runOnUiThread(() -> bindingStateTV.setText("" + bindingState));
+        bindingStateListener = bindingState -> FlyActivity.this.runOnUiThread(() -> bindingStateTV.setText("" + bindingState));
     }
 
     @SuppressLint("SetTextI18n")
     private void tearDownListener() {
         if (activationStateListener != null) {
             appActivationManager.removeAppActivationStateListener(activationStateListener);
-            MainActivity.this.runOnUiThread(() -> appActivationStateTV.setText("Unknown"));
+            FlyActivity.this.runOnUiThread(() -> appActivationStateTV.setText("Unknown"));
         }
         if (bindingStateListener !=null) {
             appActivationManager.removeAircraftBindingStateListener(bindingStateListener);
-            MainActivity.this.runOnUiThread(() -> bindingStateTV.setText("Unknown"));
+            FlyActivity.this.runOnUiThread(() -> bindingStateTV.setText("Unknown"));
         }
     }
 
@@ -521,7 +529,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public static void setAppStarted(boolean isStarted) {
-        MainActivity.isAppStarted = isStarted;
+        FlyActivity.isAppStarted = isStarted;
     }
 
     // handleBridgeIPTextChange: Handles changes to the Bridge Mode IP address text field.

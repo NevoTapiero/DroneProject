@@ -120,7 +120,7 @@ public class SignInActivity extends AppCompatActivity {
     }
 
     private void navigateToMain() {
-        Intent intent = new Intent(SignInActivity.this, MainActivity.class);
+        Intent intent = new Intent(SignInActivity.this, FlyActivity.class);
         startActivity(intent);
         finish();
     }
