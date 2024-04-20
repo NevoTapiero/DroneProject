@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.NavigationBarActivities;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -30,6 +30,9 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.dji.ImportSDKDemo.CameraHandler;
+import com.dji.ImportSDKDemo.GoFlyActivity;
+import com.dji.ImportSDKDemo.R;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.ArrayList;
@@ -177,17 +180,16 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         // Set listener for navigation item selection using if-else instead of switch
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
+            //noinspection StatementWithEmptyBody
             if (itemId == R.id.nav_fly) {
-
             } else if (itemId == R.id.nav_scan) {
                 startActivity(new Intent(this, ClassificationActivity.class));
 
             } else if (itemId == R.id.nav_gallery) {
-                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
-                startActivity(intent);*/
+                startActivity(new Intent(this, GalleryActivity.class));
+
             } else if (itemId == R.id.nav_profile) {
-                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
-                startActivity(intent);*/
+                //startActivity(new Intent(this, ProfileActivity.class));
             }
             return true;
         });

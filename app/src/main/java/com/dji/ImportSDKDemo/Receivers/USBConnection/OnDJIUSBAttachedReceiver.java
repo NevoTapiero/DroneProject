@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-import com.dji.ImportSDKDemo.FlyActivity;
+import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 
 import java.util.Objects;
 

@@ -50,13 +50,13 @@
             android:name=".SignUpActivity"
             android:exported="false" />
         <activity
-            android:name=".Library.LibraryActivity"
+            android:name=".NavigationBarActivities.GalleryActivity"
             android:exported="false" />
         <activity
             android:name=".Library.CustomActivity"
             android:exported="false" />
         <activity
-            android:name=".ClassificationActivity"
+            android:name=".NavigationBarActivities.ClassificationActivity"
             android:exported="true"/>
 
         <!-- DJI SDK -->
@@ -94,7 +94,7 @@
         </receiver>
 
         <activity
-            android:name=".FlyActivity"
+            android:name=".NavigationBarActivities.FlyActivity"
             android:configChanges="orientation"
             android:exported="true"/>
 

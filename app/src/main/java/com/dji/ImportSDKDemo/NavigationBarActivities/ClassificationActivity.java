@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.NavigationBarActivities;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -42,11 +42,13 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.dji.ImportSDKDemo.CameraHandler;
 import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
 import com.dji.ImportSDKDemo.HistoryLog.LogAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
 import com.dji.ImportSDKDemo.HistoryLog.LogFunctions;
+import com.dji.ImportSDKDemo.R;
 import com.dji.ImportSDKDemo.Services.UploadForegroundService;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -236,14 +238,14 @@ public class ClassificationActivity extends AppCompatActivity {
             if (itemId == R.id.nav_fly) {
                 startActivity(new Intent(this, FlyActivity.class));
 
-            } else if (itemId == R.id.nav_scan) {
+            } else //noinspection StatementWithEmptyBody
+                if (itemId == R.id.nav_scan) {
 
             } else if (itemId == R.id.nav_gallery) {
-                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
-                startActivity(intent);*/
+                startActivity(new Intent(this, GalleryActivity.class));
+
             } else if (itemId == R.id.nav_profile) {
-                /*intent = new Intent(ClassificationActivity.this, FlyActivity.class);
-                startActivity(intent);*/
+                //startActivity(new Intent(this, ProfileActivity.class));
             }
             return true;
         });
@@ -944,11 +946,6 @@ public class ClassificationActivity extends AppCompatActivity {
 
     public void updateLogInView() {
         LogAdapter adapter = (LogAdapter) rvLogEntry.getAdapter();
-
-        //rest the adapter to sync it with the new data
-        if (adapter != null) {
-            //adapter.resetEntries();
-        }
 
         LogFunctions.fetchData(new FirestoreCallback() {
             @Override

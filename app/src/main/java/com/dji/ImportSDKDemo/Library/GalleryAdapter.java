@@ -1,37 +1,38 @@
 package com.dji.ImportSDKDemo.Library;
+
 import static com.qx.wz.dj.rtcm.StringUtil.TAG;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.dji.ImportSDKDemo.R;
 import com.squareup.picasso.Picasso;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class LibraryAdapter extends RecyclerView.Adapter<LibraryAdapter.ViewHolder> {
+public class GalleryAdapter extends RecyclerView.Adapter<GalleryAdapter.ViewHolder> {
     private final List<ImageData> imageDataList; // List to hold image data
 
-    public LibraryAdapter(Context context) {
+    public GalleryAdapter() {
         this.imageDataList = new ArrayList<>(); // Initialize the list here
     }
 
     // Update the adapter's data with a new list of image data
+    @SuppressLint("NotifyDataSetChanged")
     public void updateData(List<ImageData> newImageDataList) {
-        if (imageDataList != null) {
-            imageDataList.clear();
-            imageDataList.addAll(newImageDataList);
-            notifyDataSetChanged();
-        }
+        imageDataList.clear();
+        imageDataList.addAll(newImageDataList);
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -73,9 +74,6 @@ public class LibraryAdapter extends RecyclerView.Adapter<LibraryAdapter.ViewHold
 
     @Override
     public int getItemCount() {
-        if (imageDataList == null) {
-            return 0;
-        }
         return imageDataList.size();
     }
 

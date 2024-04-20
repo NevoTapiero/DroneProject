@@ -13,6 +13,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 import androidx.annotation.NonNull;
+
+import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
+
 import java.util.Locale;
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
