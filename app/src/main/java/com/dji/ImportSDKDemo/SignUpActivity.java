@@ -28,6 +28,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -188,7 +189,7 @@ public class SignUpActivity extends AppCompatActivity {
 
                             // Add or update a new document with user's UID as the document ID
                             db.collection("Users").document(user.getUid())
-                                    .set(userData)
+                                    .set(userData, SetOptions.merge())
                                     .addOnSuccessListener(aVoid -> {
                                         mProgressBar.setVisibility(View.VISIBLE);
                                         setScreenTouchable(false);

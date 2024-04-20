@@ -70,25 +70,19 @@ public class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     public void updateData(List<LogEntry> newLogEntries) {
         for (int i = newLogEntries.size() - 1; i >= 0; i--) {
-            LogEntry entry = newLogEntries.get(i);
-            if (!logEntries.contains(entry)) {
-                // Check if the list size has reached the limit
-                if (logEntries.size() >= 20) {
-                    // Remove the last (oldest) entry to maintain list size
-                    logEntries.remove(logEntries.size() - 1);
-                    // Notify the adapter that an item has been removed from the end
-                    notifyItemRemoved(logEntries.size());
-                }
-                // Add new entry at the beginning of the list
-                logEntries.add(0, entry);
-                // Notify the adapter that an item is inserted at position 0
-                notifyItemInserted(0);
-            }
+            logEntries.add(newLogEntries.get(i));
         }
+        notifyDataSetChanged(); // This notifies the adapter to refresh the list display
     }
 
+    @SuppressLint("NotifyDataSetChanged")
+    public void updateData(LogEntry newLogEntryElement) {
+        logEntries.add(newLogEntryElement);
+        notifyDataSetChanged(); // This notifies the adapter to refresh the list display
+    }
 
     public interface OnItemClickListener {
         void onItemClick(LogEntry item);

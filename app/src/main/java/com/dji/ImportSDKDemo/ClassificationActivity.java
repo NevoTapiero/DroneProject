@@ -36,6 +36,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -45,6 +46,7 @@ import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
 import com.dji.ImportSDKDemo.HistoryLog.LogAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
+import com.dji.ImportSDKDemo.HistoryLog.LogFunctions;
 import com.dji.ImportSDKDemo.Services.UploadForegroundService;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -52,7 +54,6 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
@@ -108,6 +109,10 @@ public class ClassificationActivity extends AppCompatActivity {
     ProgressBar mProgressBar;
     private MediaManager mMediaManager;
     private FileListAdapter mListAdapter;
+    private Button scanButton;
+    private Button fetchAndUploadButton;
+    private ConstraintLayout buttonScanPanel;
+    private ConstraintLayout buttonUploadPanel;
     private final List<MediaFile> mediaFileList = new ArrayList<>();
     private ProgressBar progressBar;
     private ProgressBar progressBarPerImage;
@@ -218,7 +223,9 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void initializeUIComponents() {
+        buttonUploadPanel = findViewById(R.id.buttonUploadPanel);
 
+        buttonScanPanel = findViewById(R.id.buttonScanPanel);
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.nav_scan);
 
@@ -248,38 +255,48 @@ public class ClassificationActivity extends AppCompatActivity {
         /*Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
         checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
 
-        Button scanButton = findViewById(R.id.scanButton);
+        scanButton = findViewById(R.id.scanButton);
         scanButton.setOnClickListener(v -> {
+            scanButton.setSelected(true);
+            buttonScanPanel.setEnabled(false);
             if (selectedBatches.isEmpty()) {
                 showToast("Please select at least one batch to scan");
+                scanButton.setSelected(false);
+                buttonScanPanel.setEnabled(true);
             }else {
                 Toast.makeText(this, selectedBatches.toString(), Toast.LENGTH_SHORT).show();
                 initiateScanning(user.getUid(), selectedBatches);
             }
         });
 
-        Button fetchAndUploadButton = findViewById(R.id.upload_btn_firebase);
+        fetchAndUploadButton = findViewById(R.id.upload_btn_firebase);
+
         fetchAndUploadButton.setOnClickListener(v ->{
+            fetchAndUploadButton.setSelected(true);
+            buttonUploadPanel.setEnabled(false);
             if (!mediaFileList.isEmpty()){
                 checkAndRequestPermissions();
-            }else
+            }else {
                 showToast("Drone Disconnected, please reconnect the drone and try again");
+                buttonUploadPanel.setEnabled(true);
+            }
         });
 
         Button selectBatchesButton = findViewById(R.id.selectBatchesButton);
         selectBatchesButton.setOnClickListener(v -> loadBatches());
 
-
         mListAdapter = new FileListAdapter(mediaFileList);
         RecyclerView mediaRecyclerView = findViewById(R.id.mediaFileRecyclerView);
-        mediaRecyclerView.setLayoutManager(new LinearLayoutManager(this)); // Set the LayoutManager
         mediaRecyclerView.setAdapter(mListAdapter); // Set the adapter
 
 
         rvLogEntry = findViewById(R.id.rvLogHistory);
-        rvLogEntry.setLayoutManager(new LinearLayoutManager(this));
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setReverseLayout(true); // This line reverses the layout
+        layoutManager.setStackFromEnd(true); // This line ensures items start from the bottom
+        rvLogEntry.setLayoutManager(layoutManager);
 
-        fetchData(new FirestoreCallback() {
+        LogFunctions.fetchData(new FirestoreCallback() {
             @Override
             public void onComplete(List<LogEntry> result) {
                 // Create the adapter and set it to the RecyclerView
@@ -300,11 +317,16 @@ public class ClassificationActivity extends AppCompatActivity {
         mProgressBar = findViewById(R.id.loadingProgressBar);
 
         tvLoadingProgressBar = findViewById(R.id.progressBarText);
+
         if (CameraHandler.getProductInstance() != null) {
             mProgressBar.setVisibility(View.VISIBLE);
             tvLoadingProgressBar.setText(R.string.drone_connected);
-        }else
+            fetchAndUploadButton.setEnabled(true);
+        }else {
             tvLoadingProgressBar.setText(R.string.drone_disconnected);
+            fetchAndUploadButton.setEnabled(false);
+        }
+
     }
 
 
@@ -647,6 +669,9 @@ public class ClassificationActivity extends AppCompatActivity {
                         buildLogBatch();
                         fetchClassificationCounts();
                         selectedBatches.clear();
+                        scanButton.setSelected(false);
+                        buttonScanPanel.setEnabled(true);
+
                     } else {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
@@ -857,7 +882,7 @@ public class ClassificationActivity extends AppCompatActivity {
         String message = messageBuilder.toString();
         String logMessage = logBatch.toString();
         LogEntry logEntry = new LogEntry(logMessage ,message);
-        uploadListToFirestore(logEntry);
+        LogFunctions.uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
         Handler mainHandler = new Handler(Looper.getMainLooper());
         mainHandler.postDelayed(this::updateLogInView, 5000);
@@ -891,53 +916,6 @@ public class ClassificationActivity extends AppCompatActivity {
         return messageBuilder;
     }
 
-    public void uploadListToFirestore(LogEntry stringData) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        fetchData(new FirestoreCallback() {
-            @Override
-            public void onComplete(List<LogEntry> result) {
-                result.add(stringData);
-                Map<String, Object> logList = new HashMap<>();
-                logList.put("listEntries", result);
-
-                db.collection("Users").document(Objects.requireNonNull(user).getUid()).set(logList, SetOptions.merge())
-                        .addOnSuccessListener(aVoid -> Log.d("Firestore", "List successfully written!"))
-                        .addOnFailureListener(e -> Log.w("Firestore", "Error writing document", e));
-            }
-
-            @Override
-            public void onError(String message) {
-                // Handle any errors, e.g., show an error message
-                Toast.makeText(getApplicationContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-
-    public void fetchData(FirestoreCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("Users").document(user.getUid())
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        List<LogEntry> entries = new ArrayList<>();
-                        @SuppressWarnings("unchecked") // Suppressing unchecked cast warning
-                        List<Map<String, Object>> rawEntries = (List<Map<String, Object>>) documentSnapshot.get("listEntries");
-                        if (rawEntries != null) {
-                            for (Map<String, Object> entry : rawEntries) {
-                                LogEntry logEntry = new LogEntry( Objects.requireNonNull(entry.get("batchName")).toString(), Objects.requireNonNull(entry.get("message")).toString());
-                                entries.add(logEntry);
-                            }
-                        }
-                        callback.onComplete(entries);
-                    } else {
-                        callback.onError("No document found");
-                    }
-                })
-                .addOnFailureListener(e -> callback.onError(e.getMessage()));
-    }
-
-
 
     public interface FirestoreCallback {
         void onComplete(List<LogEntry> result);
@@ -955,7 +933,7 @@ public class ClassificationActivity extends AppCompatActivity {
         }
         String logMessage = logBatch.toString();
         LogEntry logEntry = new LogEntry(logMessage, message);
-        uploadListToFirestore(logEntry);
+        LogFunctions.uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
 
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -969,16 +947,17 @@ public class ClassificationActivity extends AppCompatActivity {
 
         //rest the adapter to sync it with the new data
         if (adapter != null) {
-            adapter.resetEntries();
+            //adapter.resetEntries();
         }
 
-        fetchData(new FirestoreCallback() {
+        LogFunctions.fetchData(new FirestoreCallback() {
             @Override
             public void onComplete(List<LogEntry> result) {
                 //syncing the adapter with the new data
+                LogEntry element = result.get(result.size() - 1);
                 if (adapter != null) {
                     showToast("Log size: " + result.size());
-                    adapter.updateData(result);
+                    adapter.updateData(element);
                 }
                 //scroll to the top to show the newest entry
                 rvLogEntry.scrollToPosition(0);
@@ -1112,6 +1091,8 @@ public class ClassificationActivity extends AppCompatActivity {
                         selectedBatches.clear();
                         selectedBatches.add(intent.getStringExtra("batchID"));
                         buildLogBatch();
+                        fetchAndUploadButton.setSelected(false);
+                        buttonUploadPanel.setEnabled(true);
                         updateImageCountUI(imageCount);
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
                         hideLoading();

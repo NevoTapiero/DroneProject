@@ -8,9 +8,9 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/topPanel"
-        android:layout_width="662dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/circle_background"
+        android:background="@drawable/btn_rounded_states"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -20,9 +20,9 @@
 
         <TextView
             android:id="@+id/text_connection_status"
-            android:layout_width="434dp"
-            android:layout_height="51dp"
-            android:text="No Product Connected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/connection_loose"
             android:textColor="@color/white"
             android:textSize="40sp"
             android:textStyle="bold"
@@ -38,7 +38,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="92dp"
-            android:text="@string/product_information"
+            android:text="@string/Empty_String"
             android:textColor="@color/white"
             android:textSize="40sp"
             android:textStyle="bold"
@@ -49,18 +49,34 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/btn_open"
-        android:layout_width="330dp"
-        android:layout_height="330dp"
-        android:background="@drawable/btn_circle_brown"
-        android:text="Go Fly"
-        android:textColor="@color/colorWhite"
-        android:textSize="90sp"
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/buttonPanel"
+        android:layout_width="335dp"
+        android:layout_height="335dp"
+        android:background="@drawable/shadow_states"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.538">
+
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_open"
+            android:layout_width="330dp"
+            android:layout_height="330dp"
+            android:background="@drawable/btn_circle_brown"
+            android:text="Go Fly"
+            android:textColor="@color/colorWhite"
+            android:textSize="90sp"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:ignore="HardcodedText"
+            tools:layout_editor_absoluteX="448dp"
+            tools:layout_editor_absoluteY="280dp" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <EditText
         android:id="@+id/edittext_bridge_ip"
@@ -81,7 +97,9 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.804" />
+        app:layout_constraintVertical_bias="0.865"
+        android:autofillHints=""
+        android:inputType="number" />
 
     <TextView
         android:id="@+id/tv_version"
@@ -116,7 +134,8 @@
             android:textSize="10sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            tools:ignore="HardcodedText" />
 
         <TextView
             android:id="@+id/tv_binding_state_info"
@@ -127,7 +146,8 @@
             android:textColor="@color/chocolate"
             android:textSize="10sp"
             app:layout_constraintStart_toStartOf="@id/binding_state_label"
-            app:layout_constraintTop_toBottomOf="@id/binding_state_label" />
+            app:layout_constraintTop_toBottomOf="@id/binding_state_label"
+            tools:ignore="HardcodedText" />
 
         <TextView
             android:id="@+id/activation_state_label"
@@ -139,7 +159,8 @@
             android:textSize="10sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="@id/tv_binding_state_info"
-            app:layout_constraintTop_toBottomOf="@id/tv_binding_state_info" />
+            app:layout_constraintTop_toBottomOf="@id/tv_binding_state_info"
+            tools:ignore="HardcodedText" />
 
         <TextView
             android:id="@+id/tv_activation_state_info"
@@ -151,7 +172,8 @@
             android:textColor="@color/chocolate"
             android:textSize="10sp"
             app:layout_constraintStart_toStartOf="@+id/activation_state_label"
-            app:layout_constraintTop_toTopOf="@+id/activation_state_label" />
+            app:layout_constraintTop_toTopOf="@+id/activation_state_label"
+            tools:ignore="HardcodedText" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_login"
@@ -163,7 +185,8 @@
             android:textColor="@color/white"
             android:textSize="10sp"
             app:layout_constraintStart_toStartOf="@+id/tv_activation_state_info"
-            app:layout_constraintTop_toTopOf="@+id/tv_activation_state_info" />
+            app:layout_constraintTop_toTopOf="@+id/tv_activation_state_info"
+            tools:ignore="HardcodedText" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_logout"
@@ -176,7 +199,8 @@
             android:textColor="@color/white"
             android:textSize="10sp"
             app:layout_constraintStart_toStartOf="@+id/tv_activation_state_info"
-            app:layout_constraintTop_toTopOf="@+id/tv_activation_state_info" />
+            app:layout_constraintTop_toTopOf="@+id/tv_activation_state_info"
+            tools:ignore="HardcodedText" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -189,5 +213,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

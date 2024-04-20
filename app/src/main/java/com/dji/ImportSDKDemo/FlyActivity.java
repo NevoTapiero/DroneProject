@@ -26,6 +26,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -55,7 +56,7 @@ import dji.thirdparty.afinal.core.AsyncTask;
 //todo - uml (class diagram + usecase diagram + top down diagram)
 //todo - up to 15/3 sorting log in the app
 public class FlyActivity extends AppCompatActivity implements View.OnClickListener {
-
+    private ConstraintLayout buttonPanel;
     private static final String TAG = FlyActivity.class.getName();
     //a boolean flag to track SDK registration status
     private boolean isSDKRegistered = false;
@@ -203,6 +204,7 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         TextView mVersionTv = findViewById(R.id.tv_version);
         mVersionTv.setText(getResources().getString(R.string.sdk_version, DJISDKManager.getInstance().getSDKVersion()));
 
+        buttonPanel = findViewById(R.id.buttonPanel);
 
        /* Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
         checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
@@ -269,14 +271,14 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
                 if (null != mProduct.getModel()) {
                     mTextProduct.setText(mProduct.getModel().getDisplayName());
                 } else {
-                    mTextProduct.setText(R.string.product_information);
+                    mTextProduct.setText(R.string.Empty_String);
                 }
 
             } else {
                 Log.v(TAG, "refreshSDK: False");
                 Toast.makeText(this, "refreshSDK: False", Toast.LENGTH_SHORT).show();
                 mBtnOpen.setEnabled(false);
-                mTextProduct.setText(R.string.product_information);
+                mTextProduct.setText(R.string.Empty_String);
                 mTextConnectionStatus.setText(R.string.connection_loose);
             }
         });
@@ -293,8 +295,13 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         }if (id == R.id.btn_logout) {
             logoutAccount();
         }else if (v.getId() == R.id.btn_open) {
+            mBtnOpen.setSelected(true);
+            buttonPanel.setEnabled(false);
             Intent intent = new Intent(this, GoFlyActivity.class);
             startActivity(intent);
+            mBtnOpen.setSelected(false);
+            buttonPanel.setEnabled(true);
+
         }
     }
 

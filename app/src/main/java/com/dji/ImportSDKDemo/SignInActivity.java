@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
@@ -25,7 +26,14 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 public class SignInActivity extends AppCompatActivity {
 
@@ -39,11 +47,16 @@ public class SignInActivity extends AppCompatActivity {
     private SignInButton googleSignInButton;
     private AppCompatButton createAccountButton;
     private ProgressBar mProgressBar;
+    private FirebaseFirestore db;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_in);
+
+        // Initialize Firestore
+        db = FirebaseFirestore.getInstance();
 
         // Configure Google Sign-In
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -130,17 +143,48 @@ public class SignInActivity extends AppCompatActivity {
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        mProgressBar.setVisibility(View.VISIBLE);
-                        setScreenTouchable(false);
+                        // Sign in success, update UI with the signed-in user's information
                         Log.d(TAG, "signInWithCredential:success");
-                        navigateToMain();
+                        FirebaseUser user = mAuth.getCurrentUser();
+
+                        if (user != null) {
+                            // Prepare user data
+                            Map<String, Object> userData = getUserData(user);
+
+                            // Add or update a new document with user's UID as the document ID
+                            db.collection("Users").document(user.getUid())
+                                    .set(userData, SetOptions.merge())
+                                    .addOnSuccessListener(aVoid -> {
+                                        mProgressBar.setVisibility(View.VISIBLE);
+                                        setScreenTouchable(false);
+                                        Log.d(TAG, "DocumentSnapshot successfully written!");
+                                        Toast.makeText(SignInActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
+
+                                        // Navigate to the next activity or update the UI
+                                        navigateToMain();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.w(TAG, "Error writing document", e);
+                                        Toast.makeText(SignInActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
+                                    });
+                        }
                     } else {
+                        // If sign in fails, display a message to the user.
                         Log.w(TAG, "signInWithCredential:failure", task.getException());
                         Toast.makeText(SignInActivity.this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
+
+    @NonNull
+    private static Map<String, Object> getUserData(FirebaseUser user) {
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("firstName", Objects.requireNonNull(user.getDisplayName()).split(" ")[0]); // Assuming the first name is the first part of the Display Name
+        userData.put("lastName", user.getDisplayName().split(" ").length > 1 ? user.getDisplayName().split(" ")[1] : ""); // Assuming the last name is the second part of the Display Name
+        userData.put("email", user.getEmail());
+        return userData;
+    }
 
     public void setScreenTouchable(boolean touchable) {
         FrameLayout overlay = findViewById(R.id.overlay);
