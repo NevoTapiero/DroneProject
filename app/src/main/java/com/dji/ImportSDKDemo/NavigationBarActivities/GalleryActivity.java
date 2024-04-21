@@ -37,10 +37,23 @@ public class GalleryActivity extends AppCompatActivity {
     private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
     private final List<String> batchNames = new ArrayList<>();
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_library);
+
+        selectedBatch = findViewById(R.id.selectedBatch);
+
+        // Get the Intent that started this activity
+        Intent intent = getIntent();
+
+        // Check if the Intent has the extra "batchId"
+        if (intent != null && intent.hasExtra("batchId")) {
+            batchId = intent.getStringExtra("batchId"); // Extract the batch ID sent from ClassificationActivity
+            selectedBatch.setText("Selected Batch: " + batchId);
+
+        }
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.nav_gallery);
@@ -67,7 +80,6 @@ public class GalleryActivity extends AppCompatActivity {
         Button selectBatchesButton = findViewById(R.id.selectBatchesButton);
         selectBatchesButton.setOnClickListener(v -> loadBatches());
 
-        selectedBatch = findViewById(R.id.selectedBatch);
 
         // Find the buttons for each category
         Button btnCommonRust = findViewById(R.id.btn_common_rust);
@@ -79,9 +91,9 @@ public class GalleryActivity extends AppCompatActivity {
 
         setupCategoryButton(btnCommonRust, "Corn_common_rust/");
         setupCategoryButton(btnHealthy, "Corn_healthy/");
-        setupCategoryButton(btnInfected, "Corn_gray_leaf_spots/");
-        setupCategoryButton(btnNorthernLeafBlight, "Corn_Infected/");
-        setupCategoryButton(btnGrayLeafSpots, "Corn_northern_leaf_blight/");
+        setupCategoryButton(btnInfected, "Corn_Infected/");
+        setupCategoryButton(btnNorthernLeafBlight, "Corn_northern_leaf_blight/");
+        setupCategoryButton(btnGrayLeafSpots, "Corn_gray_leaf_spots/");
         setupCategoryButton(btnUnclassified, "unclassified/");
 
     }
@@ -154,9 +166,9 @@ public class GalleryActivity extends AppCompatActivity {
         builder.setView(dialogView);
 
         builder.setPositiveButton("OK", (dialog, which) -> {
-            int checkedItems = listView.getCheckedItemPosition();
-            if (checkedItems >= 0) {  // Ensure an item is actually selected
-                batchId = batchNames.get(checkedItems);
+            int checkedItem = listView.getCheckedItemPosition();
+            if (checkedItem >= 0) {  // Ensure an item is actually selected
+                batchId = batchNames.get(checkedItem);
                 selectedBatch.setText("Selected Batch: " + batchId);
                 batchNames.clear();
             } else {
@@ -165,12 +177,19 @@ public class GalleryActivity extends AppCompatActivity {
             }
         });
 
-
         builder.setNegativeButton("Cancel", (dialog, which) -> {
             batchId = null;
             selectedBatch.setText("Batch");
             batchNames.clear();
         });
+
+        // Set a dismiss listener to handle cases where the dialog is dismissed by pressing outside
+        builder.setOnCancelListener(dialog -> {
+            Toast.makeText(this, "dismiss", Toast.LENGTH_SHORT).show();
+            selectedBatch.setText("Batch");
+            batchNames.clear();
+        });
+
 
         AlertDialog dialog = builder.create();
         dialog.show();

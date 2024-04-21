@@ -71,6 +71,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -105,6 +106,8 @@ public class ClassificationActivity extends AppCompatActivity {
     private final List<String> selectedBatches = new ArrayList<>();
     private String batchId;
     private String bactchTimeStamp;
+    private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
+
     private StringBuilder logBatch = new StringBuilder();
     Boolean fromOnDestroy = false;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
@@ -303,8 +306,17 @@ public class ClassificationActivity extends AppCompatActivity {
             public void onComplete(List<LogEntry> result) {
                 // Create the adapter and set it to the RecyclerView
                 LogAdapter logAdapter = new LogAdapter(result, item -> {
-                    Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
-                    // Handle the click event, e.g., navigate to a different screen with the item details
+                    if (item.getBatchName().contains(",")) {
+                        List<String> batchNames = Arrays.asList(item.getBatchName().split(","));
+                        showClassifiedBatchSelectionDialog(batchNames);
+                    }else {
+                        Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(ClassificationActivity.this, GalleryActivity.class);
+                        intent.putExtra("batchId", item.getBatchName());
+                        startActivity(intent);
+                        finish();
+                    }
+
                 });
                 rvLogEntry.setAdapter(logAdapter);
             }
@@ -493,9 +505,6 @@ public class ClassificationActivity extends AppCompatActivity {
                 // Handle the case where the camera instance is null
                 showToast("Camera disconnected");
             }
-        } else {
-            // Handle the case where the product is null
-            showToast("Drone Disconnected, please reconnect the drone and try again");
         }
     }
 
@@ -668,6 +677,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 handler.post(() -> {
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         Toast.makeText(ClassificationActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
+                        updateURL();
                         buildLogBatch();
                         fetchClassificationCounts();
                         selectedBatches.clear();
@@ -691,6 +701,38 @@ public class ClassificationActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void updateURL() {
+        StorageReference storageRef = FirebaseStorage.getInstance().getReference();
+        for (String batch : selectedBatches) {
+            for (String category : categories) {
+                db.collection("Users")
+                        .document(Objects.requireNonNull(user).getUid())
+                        .collection(category)
+                        .document(batch)
+                        .collection("images")
+                        .get()
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                for (QueryDocumentSnapshot document : task.getResult()) {
+                                    String imageName = document.getId();
+                                    StorageReference imageRef = storageRef.child("Users/"+ Objects.requireNonNull(user).getUid() + "/" + category  + "/" + imageName);
+                                    imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> db.collection("Users")
+                                            .document(Objects.requireNonNull(user).getUid())
+                                            .collection(category)
+                                            .document(batch)
+                                            .collection("images")
+                                            .document(imageName)
+                                            .update("imageUrl", downloadUri.toString()))
+                                            .addOnFailureListener(e -> showToast("Failed to update image url: " + e.getMessage()));
+                                }
+                            } else {
+                                Log.d(TAG, "Error getting documents: ", task.getException());
+                            }
+                        });
+            }
+        }
     }
 
 
@@ -734,6 +776,7 @@ public class ClassificationActivity extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
 
         builder.show();
 
@@ -957,7 +1000,7 @@ public class ClassificationActivity extends AppCompatActivity {
                     adapter.updateData(element);
                 }
                 //scroll to the top to show the newest entry
-                rvLogEntry.scrollToPosition(0);
+                rvLogEntry.scrollToPosition(result.size() - 1);
             }
 
             @Override
@@ -1265,6 +1308,44 @@ public class ClassificationActivity extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> selectedBatches.clear());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void showClassifiedBatchSelectionDialog(List<String> classifiedBatchNames) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Batches");
+
+        LayoutInflater inflater = getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_batch_selection_gallery, null);
+        ListView listView = dialogView.findViewById(R.id.listViewBatchesGallery);
+
+        // Set up the adapter for the ListView
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_single_choice, classifiedBatchNames);
+        listView.setAdapter(adapter);
+        listView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+
+        builder.setView(dialogView);
+
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String batchId;
+            int checkedItem = listView.getCheckedItemPosition();
+            if (checkedItem >= 0) {  // Ensure an item is actually selected
+                batchId = classifiedBatchNames.get(checkedItem);
+                Toast.makeText(this, "You selected: " + batchId, Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(ClassificationActivity.this, GalleryActivity.class);
+                intent.putExtra("batchId", batchId);
+                startActivity(intent);
+                finish();
+            }else {
+                // Handle the case where no selection was made
+                Toast.makeText(this, "No batch selected!", Toast.LENGTH_SHORT).show();
+            }
+
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
         dialog.show();
