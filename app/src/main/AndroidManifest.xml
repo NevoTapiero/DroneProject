@@ -44,10 +44,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ImportSDKDemo">
         <activity
-            android:name=".PasswordResetActivity"
+            android:name=".Authentication.PasswordResetActivity"
             android:exported="false" />
         <activity
-            android:name=".SignUpActivity"
+            android:name=".Authentication.SignUpActivity"
             android:exported="false" />
         <activity
             android:name=".NavigationBarActivities.GalleryActivity"
@@ -101,7 +101,7 @@
         <activity android:name=".GoFlyActivity" />
 
         <activity
-            android:name=".SignInActivity"
+            android:name=".Authentication.SignInActivity"
             android:configChanges="orientation"
             android:exported="true">
             <intent-filter>

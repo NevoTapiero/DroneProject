@@ -1,5 +1,11 @@
 package com.dji.ImportSDKDemo.NavigationBarActivities;
 
+import static com.dji.ImportSDKDemo.ExtractImageInformation.extractImageLocation;
+import static com.dji.ImportSDKDemo.ExtractImageInformation.extractImageTime;
+import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.fetchData;
+import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.uploadListToFirestore;
+import static com.dji.ImportSDKDemo.ShowToast.showToast;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -16,7 +22,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
-import android.support.media.ExifInterface;
 import android.text.InputType;
 import android.util.Log;
 import android.util.SparseBooleanArray;
@@ -47,7 +52,6 @@ import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
 import com.dji.ImportSDKDemo.HistoryLog.LogAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.LogEntry;
-import com.dji.ImportSDKDemo.HistoryLog.LogFunctions;
 import com.dji.ImportSDKDemo.R;
 import com.dji.ImportSDKDemo.Services.UploadForegroundService;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -62,13 +66,12 @@ import com.google.firebase.storage.StorageReference;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,7 +110,6 @@ public class ClassificationActivity extends AppCompatActivity {
     private String batchId;
     private String bactchTimeStamp;
     private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
-
     private StringBuilder logBatch = new StringBuilder();
     Boolean fromOnDestroy = false;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
@@ -150,7 +152,6 @@ public class ClassificationActivity extends AppCompatActivity {
         initializeUIComponents();
         registerSDK();
 
-
     }
 
 
@@ -166,12 +167,12 @@ public class ClassificationActivity extends AppCompatActivity {
             public void onRegister(DJIError djiError) {
                 if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
                     // SDK registration successful
-                    showToast("Register Success");
+                    showToast("Register Success", getApplicationContext());
                     DJISDKManager.getInstance().startConnectionToProduct();
 
                 } else {
                     // SDK registration failed
-                    showToast("Register sdk fails, please check the bundle id and network connection!");
+                    showToast("Register sdk fails, please check the bundle id and network connection!", getApplicationContext());
 
                 }
                 Log.v(TAG, djiError.getDescription());
@@ -180,7 +181,7 @@ public class ClassificationActivity extends AppCompatActivity {
             @Override
             public void onProductDisconnect() {
                 Log.d(TAG, "onProductDisconnect");
-                showToast("Product Disconnected");
+                showToast("Product Disconnected", getApplicationContext());
                 onProductDisconnected();
                 mProgressBar.setVisibility(View.INVISIBLE);
                 tvLoadingProgressBar.setText(R.string.drone_disconnected);
@@ -188,7 +189,7 @@ public class ClassificationActivity extends AppCompatActivity {
             @Override
             public void onProductConnect(BaseProduct baseProduct) {
                 Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-                showToast("Product Connected");
+                showToast("Product Connected", getApplicationContext());
                 onProductReconnected();
                 mProgressBar.setVisibility(View.VISIBLE);
                 tvLoadingProgressBar.setText(R.string.drone_connected);
@@ -265,7 +266,7 @@ public class ClassificationActivity extends AppCompatActivity {
             scanButton.setSelected(true);
             buttonScanPanel.setEnabled(false);
             if (selectedBatches.isEmpty()) {
-                showToast("Please select at least one batch to scan");
+                showToast("Please select at least one batch to scan", getApplicationContext());
                 scanButton.setSelected(false);
                 buttonScanPanel.setEnabled(true);
             }else {
@@ -282,7 +283,7 @@ public class ClassificationActivity extends AppCompatActivity {
             if (!mediaFileList.isEmpty()){
                 checkAndRequestPermissions();
             }else {
-                showToast("Drone Disconnected, please reconnect the drone and try again");
+                showToast("Drone Disconnected, please reconnect the drone and try again", getApplicationContext());
                 buttonUploadPanel.setEnabled(true);
             }
         });
@@ -301,7 +302,7 @@ public class ClassificationActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true); // This line ensures items start from the bottom
         rvLogEntry.setLayoutManager(layoutManager);
 
-        LogFunctions.fetchData(new FirestoreCallback() {
+        fetchData(new FirestoreCallback() {
             @Override
             public void onComplete(List<LogEntry> result) {
                 // Create the adapter and set it to the RecyclerView
@@ -402,11 +403,11 @@ public class ClassificationActivity extends AppCompatActivity {
                     }
                 } else {
                     // Handle the error
-                    showToast("Get Media File List Failed:" + djiError.getDescription());
+                    showToast("Get Media File List Failed:" + djiError.getDescription(), getApplicationContext());
                 }
             }));
         } else {
-            showToast("Media Manager is null");
+            showToast("Media Manager is null", getApplicationContext());
         }
     }
 
@@ -426,7 +427,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to show that file list synchronization is in progress
-                    showToast("Syncing media file list...");
+                    showToast("Syncing media file list...", getApplicationContext());
                 });
                 DJILog.e(TAG, "recalling setCameraMode");
 
@@ -437,7 +438,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 mediaFileList.clear();
                 runOnUiThread(() -> {
                     // Update UI to indicate the file list is incomplete.
-                    showToast("Media file list incomplete.");
+                    showToast("Media file list incomplete.", getApplicationContext());
                 });
                 break;
             case UP_TO_DATE:
@@ -445,7 +446,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to reflect that the media file list is ready for access.
-                    showToast("Media file list synchronized.");
+                    showToast("Media file list synchronized.", getApplicationContext());
                     // Optionally, refresh your UI component that displays the media file list.
                 });
                 runOnUiThread(() -> {
@@ -459,19 +460,19 @@ public class ClassificationActivity extends AppCompatActivity {
                 currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI to show that files are currently being deleted.
-                    showToast("Deleting media files...");
+                    showToast("Deleting media files...", getApplicationContext());
                 });
                 DJILog.e(TAG, "recalling setCameraMode");
                 break;
 
             case RESET:
                 currentFileListState = state;
-                runOnUiThread(() -> showToast("The file list is reset. retrying..."));
+                runOnUiThread(() -> showToast("The file list is reset. retrying...", getApplicationContext()));
 
                 break;
             case RENAMING:
                 currentFileListState = state;
-                runOnUiThread(() -> showToast("A renaming operation is in progress."));
+                runOnUiThread(() -> showToast("A renaming operation is in progress." ,getApplicationContext()));
 
 
                 break;
@@ -481,7 +482,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 currentFileListState = state;
                 runOnUiThread(() -> {
                     // Update UI for an unknown state.
-                    showToast("Unknown media file list state.");
+                    showToast("Unknown media file list state.", getApplicationContext());
                 });
                 break;
         }
@@ -499,11 +500,12 @@ public class ClassificationActivity extends AppCompatActivity {
                         DJILog.e(TAG, "Media Manager is busy.");
                     }
                 } else {
-                    showToast("MediaManager is null");
+                    showToast("MediaManager is null" ,getApplicationContext());
                 }
             }else {
                 // Handle the case where the camera instance is null
-                showToast("Camera disconnected");
+
+                showToast("Camera disconnected", getApplicationContext());
             }
         }
     }
@@ -520,20 +522,20 @@ public class ClassificationActivity extends AppCompatActivity {
                             CameraHandler.getCameraInstance().exitPlayback(djiError -> {
                                 if (djiError == null) {
                                     // Successfully exited playback mode
-                                    showToast("Exited playback mode");
+                                    showToast("Exited playback mode", getApplicationContext());
                                     CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError2 -> {
                                         if (djiError2 == null) {
                                             // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
-                                            showToast("Set to SHOOT_PHOTO mode");
+                                            showToast("Set to SHOOT_PHOTO mode", getApplicationContext());
                                             refreshMediaFileList();
                                         } else {
                                             // Handle the error
-                                            showToast("Set mode failed: " + djiError2.getDescription());
+                                            showToast("Set mode failed: " + djiError2.getDescription(), getApplicationContext());
                                         }
                                     });
                                 } else {
                                     // Handle the error
-                                    showToast("Exit playback mode failed: " + djiError.getDescription());
+                                    showToast("Exit playback mode failed: " + djiError.getDescription(), getApplicationContext());
 
                                 }
                             });
@@ -541,11 +543,11 @@ public class ClassificationActivity extends AppCompatActivity {
                             CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO, djiError -> {
                                 if (djiError == null) {
                                     // Successfully set to SHOOT_PHOTO mode, or choose any other mode as needed
-                                    showToast("Set to SHOOT_PHOTO mode");
+                                    showToast("Set to SHOOT_PHOTO mode", getApplicationContext());
                                     refreshMediaFileList();
                                 } else {
                                     // Handle the error
-                                    showToast("Set mode failed: " + djiError.getDescription());
+                                    showToast("Set mode failed: " + djiError.getDescription(), getApplicationContext());
                                 }
                             });
                         }
@@ -554,7 +556,7 @@ public class ClassificationActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(DJIError error) {
                         // Handle the error
-                        showToast("Set mode failed: " + error.getDescription());
+                        showToast("Set mode failed: " + error.getDescription(), getApplicationContext());
                     }
                 });
 
@@ -568,36 +570,36 @@ public class ClassificationActivity extends AppCompatActivity {
                         CameraHandler.getCameraInstance().enterPlayback(djiError -> {
                             if (djiError == null) {
                                 // Successfully set to PLAYBACK mode, or choose any other mode as needed
-                                showToast("Set to PLAYBACK mode");
+                                showToast("Set to PLAYBACK mode", getApplicationContext());
                                 refreshMediaFileList();
                             } else {
                                 // Handle the error
-                                showToast("Set mode failed: " + djiError.getDescription());
+                                showToast("Set mode failed: " + djiError.getDescription(), getApplicationContext());
                             }
                         });
                     }else {
-                        showToast("Playback Mode not Supported");
+                        showToast("Playback Mode not Supported", getApplicationContext());
                     }
                 } else {
                     if (CameraHandler.getCameraInstance().isMediaDownloadModeSupported()) {
                         CameraHandler.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, djiError -> {
                             if (djiError == null) {
                                 // Successfully set to MEDIA_DOWNLOAD mode, or choose any other mode as needed
-                                showToast("Set to MEDIA_DOWNLOAD mode");
+                                showToast("Set to MEDIA_DOWNLOAD mode", getApplicationContext());
                                 refreshMediaFileList();
                             } else {
                                 // Handle the error
-                                showToast("Set mode failed: " + djiError.getDescription());
+                                showToast("Set mode failed: " + djiError.getDescription(), getApplicationContext());
                             }
                         });
 
                     } else {
-                        showToast("Media Download Mode not Supported");
+                        showToast("Media Download Mode not Supported", getApplicationContext());
                     }
                 }
             }else {
                 // Handle the case where the camera instance is null
-                showToast("Camera disconnected. please reconnect the drone and try again");
+                showToast("Camera disconnected. please reconnect the drone and try again", getApplicationContext());
             }
         }
 
@@ -610,12 +612,12 @@ public class ClassificationActivity extends AppCompatActivity {
             CameraHandler.getCameraInstance().getMode(new CommonCallbacks.CompletionCallbackWith<SettingsDefinitions.CameraMode>() {
                 @Override
                 public void onSuccess(SettingsDefinitions.CameraMode cameraMode) {
-                    showToast("Camera Mode: " + cameraMode);
+                    showToast("Camera Mode: " + cameraMode, getApplicationContext());
                 }
                 @Override
                 public void onFailure(DJIError error) {
                     // Handle the error
-                    showToast("Get Mode failed: " + error.getDescription());
+                    showToast("Get Mode failed: " + error.getDescription(), getApplicationContext());
                 }
             });
         }
@@ -725,7 +727,7 @@ public class ClassificationActivity extends AppCompatActivity {
                                             .collection("images")
                                             .document(imageName)
                                             .update("imageUrl", downloadUri.toString()))
-                                            .addOnFailureListener(e -> showToast("Failed to update image url: " + e.getMessage()));
+                                            .addOnFailureListener(e -> showToast("Failed to update image url: " + e.getMessage(), getApplicationContext()));
                                 }
                             } else {
                                 Log.d(TAG, "Error getting documents: ", task.getException());
@@ -733,11 +735,6 @@ public class ClassificationActivity extends AppCompatActivity {
                         });
             }
         }
-    }
-
-
-    private void showToast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     private void handleImageSelection(Intent data) {
@@ -820,7 +817,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private void handleBatchNameDrone(String batchName) {
         Log.d("BatchName", "Received batch name: " + batchName);
         batchId = batchName;
-        showToast(String.valueOf(mediaFileList.size()));
+        showToast(String.valueOf(mediaFileList.size()), getApplicationContext());
         progressBar.setMax(mediaFileList.size());
         startUploadService();
     }
@@ -840,17 +837,24 @@ public class ClassificationActivity extends AppCompatActivity {
                             docData.put("imageName", imageName);
                             docData.put("classTag", "unclassified");
 
-                            Date timestamp = extractImageTime(selectedImageUri);
-                            docData.put("timestamp", timestamp);
 
-                            Map<String, Double> returnLocation = extractImageLocation(selectedImageUri);
-                            if (returnLocation != null) {
-                                docData.put("latitude", returnLocation.get("latitude"));
-                                docData.put("longitude", returnLocation.get("longitude"));
-                            } else {
-                                docData.put("latitude", null);
-                                docData.put("longitude", null);
+                            try {
+                                InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
+                                Date timestamp = extractImageTime(inputStream);
+                                docData.put("timestamp", timestamp);
+
+                                Map<String, Double> returnLocation = extractImageLocation(inputStream);
+                                if (returnLocation != null) {
+                                    docData.put("latitude", returnLocation.get("latitude"));
+                                    docData.put("longitude", returnLocation.get("longitude"));
+                                } else {
+                                    docData.put("latitude", null);
+                                    docData.put("longitude", null);
+                                }
+                            } catch (FileNotFoundException e) {
+                                throw new RuntimeException(e);
                             }
+
                             Map<String, Object> batchDocData = new HashMap<>();
                             batchDocData.put("timestamp", bactchTimeStamp);
 
@@ -862,7 +866,7 @@ public class ClassificationActivity extends AppCompatActivity {
                                     .set(batchDocData)
                                     .addOnSuccessListener(documentReference -> {
                                     })
-                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage()));
+                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage(), getApplicationContext()));
 
                             // Save image data within a specific batch
                             // Use a document for batch with a sub-collection for images
@@ -876,9 +880,9 @@ public class ClassificationActivity extends AppCompatActivity {
                                     .set(docData) // Adds the image document within the "images" sub-collection
                                     .addOnSuccessListener(documentReference -> {
                                     })
-                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage()));
+                                    .addOnFailureListener(e -> showToast("Error adding document: " + e.getMessage(), getApplicationContext()));
                         })
-                        .addOnFailureListener(e -> showToast("Image upload failed: " + e.getMessage())));
+                        .addOnFailureListener(e -> showToast("Image upload failed: " + e.getMessage(), getApplicationContext())));
 
         updateSuccessfulUploads(totalFiles);
     }
@@ -927,7 +931,7 @@ public class ClassificationActivity extends AppCompatActivity {
         String message = messageBuilder.toString();
         String logMessage = logBatch.toString();
         LogEntry logEntry = new LogEntry(logMessage ,message);
-        LogFunctions.uploadListToFirestore(logEntry);
+        uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
         Handler mainHandler = new Handler(Looper.getMainLooper());
         mainHandler.postDelayed(this::updateLogInView, 5000);
@@ -978,7 +982,7 @@ public class ClassificationActivity extends AppCompatActivity {
         }
         String logMessage = logBatch.toString();
         LogEntry logEntry = new LogEntry(logMessage, message);
-        LogFunctions.uploadListToFirestore(logEntry);
+        uploadListToFirestore(logEntry);
         logBatch = new StringBuilder();
 
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -990,13 +994,13 @@ public class ClassificationActivity extends AppCompatActivity {
     public void updateLogInView() {
         LogAdapter adapter = (LogAdapter) rvLogEntry.getAdapter();
 
-        LogFunctions.fetchData(new FirestoreCallback() {
+        fetchData(new FirestoreCallback() {
             @Override
             public void onComplete(List<LogEntry> result) {
                 //syncing the adapter with the new data
                 LogEntry element = result.get(result.size() - 1);
                 if (adapter != null) {
-                    showToast("Log size: " + result.size());
+                    showToast("Log size: " + result.size(), getApplicationContext());
                     adapter.updateData(element);
                 }
                 //scroll to the top to show the newest entry
@@ -1013,50 +1017,7 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
 
-    private Date extractImageTime(Uri imageUri) {
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(imageUri);
-            ExifInterface exif = null;
-            if (inputStream != null) {
-                exif = new ExifInterface(inputStream);
-            }
-            String dateTimeString = null;
-            if (exif != null) {
-                dateTimeString = exif.getAttribute(ExifInterface.TAG_DATETIME);
-            }
-            if (dateTimeString != null) {
-                SimpleDateFormat format = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
-                return format.parse(dateTimeString);
-            }
-        } catch (IOException | ParseException e) {
-            showToast("Error extracting image time: " + e.getMessage());
-        }
-        return null;
-    }
 
-    private Map<String, Double> extractImageLocation(Uri imageUri) {
-        Map<String, Double> returnLocation = new HashMap<>();
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(imageUri);
-            ExifInterface exif = null;
-            if (inputStream != null) {
-                exif = new ExifInterface(inputStream);
-            }
-
-            double[] latLong = new double[0];
-            if (exif != null) {
-                latLong = exif.getLatLong();
-            }
-            if(latLong != null) {
-                returnLocation.put("latitude", latLong[0]);
-                returnLocation.put("longitude", latLong[1]);
-                return returnLocation;
-            }
-        } catch (IOException e) {
-            showToast("Error extracting image location: " + e.getMessage());
-        }
-        return null;
-    }
 
 
 
@@ -1081,7 +1042,7 @@ public class ClassificationActivity extends AppCompatActivity {
                 askForBatchNameDrone(this);
             } else {
                 // Notify the user that some permissions were denied
-                showToast("Some permissions were denied.");
+                showToast("Some permissions were denied.", getApplicationContext());
                 checkAndRequestPermissions();
             }
         }

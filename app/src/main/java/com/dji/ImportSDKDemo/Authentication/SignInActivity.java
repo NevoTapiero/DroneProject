@@ -1,4 +1,4 @@
-package com.dji.ImportSDKDemo;
+package com.dji.ImportSDKDemo.Authentication;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -17,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
+import com.dji.ImportSDKDemo.R;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -35,29 +37,25 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class SignUpActivity extends AppCompatActivity {
+public class SignInActivity extends AppCompatActivity {
 
-    private EditText firstNameInput;
-    private EditText lastNameInput;
     private EditText emailInput;
-    private EditText reEnterEmailInput;
     private EditText passwordInput;
-    private EditText reEnterPasswordInput;
+    private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private GoogleSignInClient mGoogleSignInClient;
     private static final String TAG = SignInActivity.class.getSimpleName();
-    // Initialize FirebaseAuth
-    private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
-    private AppCompatButton signUpButton;
+    private TextView forgotPasswordText;
+    private AppCompatButton logInButton;
     private SignInButton googleSignInButton;
     private AppCompatButton createAccountButton;
-    private FirebaseFirestore db;
     private ProgressBar mProgressBar;
+    private FirebaseFirestore db;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_sign_up); // Replace with the name of your layout file
+        setContentView(R.layout.activity_sign_in);
 
         // Initialize Firestore
         db = FirebaseFirestore.getInstance();
@@ -77,14 +75,11 @@ public class SignUpActivity extends AppCompatActivity {
     }
 
     private void setupViews() {
-        // Initialize the views
-        firstNameInput = findViewById(R.id.firstNameInput);
-        lastNameInput = findViewById(R.id.lastNameInput);
+        // Initialize views
         emailInput = findViewById(R.id.emailInput);
-        reEnterEmailInput = findViewById(R.id.reEnterEmailInput);
         passwordInput = findViewById(R.id.passwordInput);
-        reEnterPasswordInput = findViewById(R.id.reEnterPasswordInput);
-        signUpButton = findViewById(R.id.signUpButton);
+        forgotPasswordText = findViewById(R.id.forgotPasswordText);
+        logInButton = findViewById(R.id.logInButton);
         googleSignInButton = findViewById(R.id.googleSignInButton);
         createAccountButton = findViewById(R.id.createAccountButton);
         mProgressBar = findViewById(R.id.loadingProgressBar);
@@ -92,88 +87,58 @@ public class SignUpActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        googleSignInButton.setOnClickListener(view -> signInWithGoogle());
+        googleSignInButton.setOnClickListener(v -> signInWithGoogle());
 
-        createAccountButton.setOnClickListener(view -> {
-            // Navigate to the sign-in screen
-            Intent intent = new Intent(this, SignInActivity.class);
+        createAccountButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, SignUpActivity.class);
             startActivity(intent);
         });
 
-        // Set up the listeners for the buttons
-        signUpButton.setOnClickListener(view -> {
-            // Get the values from the input fields
-            String firstName = firstNameInput.getText().toString().trim();
-            String lastName = lastNameInput.getText().toString().trim();
-            String email = emailInput.getText().toString().trim();
-            String reEnterEmail = reEnterEmailInput.getText().toString().trim();
-            String password = passwordInput.getText().toString().trim();
-            String reEnterPassword = reEnterPasswordInput.getText().toString().trim();
-
-            // Basic validation
-            if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(SignUpActivity.this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!email.equals(reEnterEmail)) {
-                Toast.makeText(SignUpActivity.this, "Emails do not match", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!password.equals(reEnterPassword)) {
-                Toast.makeText(SignUpActivity.this, "Passwords do not match", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (password.length() < 6) {
-                Toast.makeText(SignUpActivity.this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            // Create the user account with Firebase Authentication
-            mAuth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener(this, task -> {
-                        if (task.isSuccessful()) {
-                            // Get the signed-in user
-                            FirebaseUser user = mAuth.getCurrentUser();
-                            if (user != null) {
-                                // Prepare user data
-                                Map<String, Object> userData = new HashMap<>();
-                                userData.put("firstName", firstName);
-                                userData.put("lastName", lastName);
-                                userData.put("email", email);
-
-                                // Add a new document with user's UID as the document ID
-                                db.collection("Users").document(user.getUid())
-                                        .set(userData)
-                                        .addOnSuccessListener(aVoid -> {
-                                            Log.d(TAG, "DocumentSnapshot successfully written!");
-                                            Toast.makeText(SignUpActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
-
-                                            // Proceed to the next screen or activity
-                                            navigateToMain();
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.w(TAG, "Error writing document", e);
-                                            Toast.makeText(SignUpActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
-                                        });
-                            }
-                        } else {
-                            // If sign up fails, display a message to the user.
-                            Toast.makeText(SignUpActivity.this, "Authentication failed: " + Objects.requireNonNull(task.getException()).getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                    });
-
+        forgotPasswordText.setOnClickListener(v -> {
+            Intent intent = new Intent(SignInActivity.this, PasswordResetActivity.class);
+            startActivity(intent);
         });
 
+        logInButton.setOnClickListener(view -> {
+            String email = emailInput.getText().toString().trim();
+            String password = passwordInput.getText().toString().trim();
+
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(SignInActivity.this, "Email and password cannot be empty", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Sign in with Firebase Authentication
+            mAuth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener(SignInActivity.this, task -> {
+                        if (task.isSuccessful()) {
+                            // Sign in success
+                            Toast.makeText(SignInActivity.this, "Authentication successful.",
+                                    Toast.LENGTH_SHORT).show();
+
+                            // Navigate to the main activity
+                            navigateToMain();
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Toast.makeText(SignInActivity.this, "Authentication failed.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        });
     }
+
+
 
     private void signInWithGoogle() {
         Intent signInIntent = mGoogleSignInClient.getSignInIntent();
         googleSignInLauncher.launch(signInIntent);
     }
 
+    private void navigateToMain() {
+        Intent intent = new Intent(SignInActivity.this, FlyActivity.class);
+        startActivity(intent);
+        finish();
+    }
 
     private void firebaseAuthWithGoogle(String idToken) {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
@@ -195,23 +160,24 @@ public class SignUpActivity extends AppCompatActivity {
                                         mProgressBar.setVisibility(View.VISIBLE);
                                         setScreenTouchable(false);
                                         Log.d(TAG, "DocumentSnapshot successfully written!");
-                                        Toast.makeText(SignUpActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(SignInActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
 
                                         // Navigate to the next activity or update the UI
                                         navigateToMain();
                                     })
                                     .addOnFailureListener(e -> {
                                         Log.w(TAG, "Error writing document", e);
-                                        Toast.makeText(SignUpActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(SignInActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
                                     });
                         }
                     } else {
                         // If sign in fails, display a message to the user.
                         Log.w(TAG, "signInWithCredential:failure", task.getException());
-                        Toast.makeText(SignUpActivity.this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(SignInActivity.this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
+
 
     @NonNull
     private static Map<String, Object> getUserData(FirebaseUser user) {
@@ -230,14 +196,6 @@ public class SignUpActivity extends AppCompatActivity {
             overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
         }
     }
-
-
-    private void navigateToMain() {
-        Intent intent = new Intent(SignUpActivity.this, FlyActivity.class);
-        startActivity(intent);
-        finish();
-    }
-
 
     ActivityResultLauncher<Intent> googleSignInLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
