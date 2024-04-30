@@ -137,10 +137,6 @@ public class GoFlyActivity extends Activity implements SurfaceTextureListener,On
         super.onStop();
     }
 
-    public void onReturn(View view){
-        Log.e(TAG, "onReturn");
-        this.finish();
-    }
 
     @Override
     protected void onDestroy() {

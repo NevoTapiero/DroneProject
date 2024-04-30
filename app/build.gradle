@@ -9,11 +9,10 @@ android {
 
     defaultConfig {
         applicationId "com.dji.ImportSDKDemo"
-        minSdk 30
+        minSdk 21
         targetSdk 31
         versionCode 1
         versionName "1.0"
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
@@ -42,7 +41,7 @@ android {
 }
 
 dependencies {
-    implementation platform('com.google.firebase:firebase-bom:32.8.0')
+    implementation platform('com.google.firebase:firebase-bom:32.8.1')
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-functions'
@@ -58,7 +57,7 @@ dependencies {
 
     implementation 'androidx.navigation:navigation-fragment:2.7.7'
     implementation 'androidx.navigation:navigation-ui:2.7.7'
-    implementation 'androidx.activity:activity:1.8.2'
+    implementation 'androidx.activity:activity:1.9.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation "androidx.work:work-runtime:2.9.0"
@@ -70,13 +69,15 @@ dependencies {
 
     implementation 'com.squareup.picasso:picasso:2.71828'
 
-    implementation 'com.drewnoakes:metadata-extractor:2.16.0'
-
     implementation 'com.google.android.gms:play-services-location:21.2.0'
     implementation 'com.google.android.material:material:1.11.0'
-    implementation 'com.google.android.gms:play-services-auth:21.0.0'
+
+    implementation 'com.google.android.gms:play-services-auth:21.1.0'
+
+    implementation 'com.drewnoakes:metadata-extractor:2.17.0'
 
     testImplementation 'junit:junit:4.13.2'
+
 
 }
 

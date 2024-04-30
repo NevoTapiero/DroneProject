@@ -4,6 +4,11 @@ import static com.dji.ImportSDKDemo.ExtractImageInformation.extractImageLocation
 import static com.dji.ImportSDKDemo.ExtractImageInformation.extractImageTime;
 import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.fetchData;
 import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.uploadListToFirestore;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_NOTIFY_TRIES;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_START_LOADING;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_START_LOADING_PER_IMAGE;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE;
 import static com.dji.ImportSDKDemo.ShowToast.showToast;
 
 import android.Manifest;
@@ -89,16 +94,12 @@ import java.util.stream.Collectors;
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJICameraError;
 import dji.common.error.DJIError;
-import dji.common.error.DJISDKError;
 import dji.common.product.Model;
 import dji.common.util.CommonCallbacks;
 import dji.log.DJILog;
-import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.media.MediaFile;
 import dji.sdk.media.MediaManager;
-import dji.sdk.sdkmanager.DJISDKInitEvent;
-import dji.sdk.sdkmanager.DJISDKManager;
 
 public class ClassificationActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
@@ -150,7 +151,6 @@ public class ClassificationActivity extends AppCompatActivity {
 
         initMediaManager();
         initializeUIComponents();
-        registerSDK();
 
     }
 
@@ -161,72 +161,7 @@ public class ClassificationActivity extends AppCompatActivity {
         return new SimpleDateFormat("yyyy.MM.dd => HH:mm:ss", Locale.getDefault()).format(new Date());
     }
 
-    private void registerSDK() {
-        DJISDKManager.getInstance().registerApp(ClassificationActivity.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
-            @Override
-            public void onRegister(DJIError djiError) {
-                if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
-                    // SDK registration successful
-                    showToast("Register Success", getApplicationContext());
-                    DJISDKManager.getInstance().startConnectionToProduct();
 
-                } else {
-                    // SDK registration failed
-                    showToast("Register sdk fails, please check the bundle id and network connection!", getApplicationContext());
-
-                }
-                Log.v(TAG, djiError.getDescription());
-            }
-
-            @Override
-            public void onProductDisconnect() {
-                Log.d(TAG, "onProductDisconnect");
-                showToast("Product Disconnected", getApplicationContext());
-                onProductDisconnected();
-                mProgressBar.setVisibility(View.INVISIBLE);
-                tvLoadingProgressBar.setText(R.string.drone_disconnected);
-            }
-            @Override
-            public void onProductConnect(BaseProduct baseProduct) {
-                Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-                showToast("Product Connected", getApplicationContext());
-                onProductReconnected();
-                mProgressBar.setVisibility(View.VISIBLE);
-                tvLoadingProgressBar.setText(R.string.drone_connected);
-            }
-
-
-
-            @Override
-            public void onProductChanged(BaseProduct baseProduct) {
-
-            }
-
-            @Override
-            public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
-                                          BaseComponent newComponent) {
-
-                if (newComponent != null) {
-                    newComponent.setComponentListener(isConnected -> Log.d(TAG, "onComponentConnectivityChanged: " + isConnected));
-                }
-                Log.d(TAG,
-                        String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
-                                componentKey,
-                                oldComponent,
-                                newComponent));
-
-            }
-            @Override
-            public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
-
-            }
-
-            @Override
-            public void onDatabaseDownloadProgress(long l, long l1) {
-
-            }
-        });
-    }
 
     private void initializeUIComponents() {
         buttonUploadPanel = findViewById(R.id.buttonUploadPanel);
@@ -377,9 +312,21 @@ public class ClassificationActivity extends AppCompatActivity {
                     List<MediaFile> newMediaFiles = mMediaManager.getSDCardFileListSnapshot();
 
                     // Filter out files with 0 bytes and delete them
-                    List<MediaFile> filesToDelete = Objects.requireNonNull(newMediaFiles).stream()
-                            .filter(file -> file.getFileSize() == 0)
-                            .collect(Collectors.toList());
+                    List<MediaFile> filesToDelete = new ArrayList<>();
+
+                    // for api 24 and above
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        filesToDelete = Objects.requireNonNull(mediaFileList).stream()
+                                .filter(file -> file.getFileSize() == 0)
+                                .collect(Collectors.toList());
+                    } else { // for api 23 and below
+                        for (MediaFile file : mediaFileList) {
+                            if (file.getFileSize() == 0) {
+                                filesToDelete.add(file);
+                            }
+                        }
+                    }
+
 
                     if (!filesToDelete.isEmpty()) {
                         mMediaManager.deleteFiles(filesToDelete, new CommonCallbacks.CompletionCallbackWithTwoParam<List<MediaFile>, DJICameraError>() {
@@ -669,7 +616,8 @@ public class ClassificationActivity extends AppCompatActivity {
 
                 // Write JSON payload to output stream
                 try (OutputStream os = urlConnection.getOutputStream()) {
-                    byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                    byte[] input;
+                    input = jsonInputString.getBytes(StandardCharsets.UTF_8);
                     os.write(input, 0, input.length);
                 }
 
@@ -1083,10 +1031,10 @@ public class ClassificationActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() != null) {
                 switch (intent.getAction()) {
-                    case UploadForegroundService.ACTION_START_LOADING:
+                    case ACTION_START_LOADING:
                         showLoading(true);
                         break;
-                    case UploadForegroundService.ACTION_STOP_LOADING:
+                    case ACTION_STOP_LOADING:
                         String message = intent.getStringExtra("message");
                         int imageCount = intent.getIntExtra("imageCount", 0);
                         selectedBatches.clear();
@@ -1111,10 +1059,10 @@ public class ClassificationActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() != null) {
                 switch (intent.getAction()) {
-                    case UploadForegroundService.ACTION_START_LOADING_PER_IMAGE:
+                    case ACTION_START_LOADING_PER_IMAGE:
                         showLoadingPerImage();
                         break;
-                    case UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE:
+                    case ACTION_STOP_LOADING_PER_IMAGE:
                         hideLoadingPerImage();
                         //updateAdapterWithNewData(mediaFileList);
                         break;
@@ -1152,23 +1100,11 @@ public class ClassificationActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
          if (intent.getAction() != null) {
-             if (intent.getAction().equals(UploadForegroundService.ACTION_NOTIFY_TRIES)) {
+             if (intent.getAction().equals(ACTION_NOTIFY_TRIES)) {
                  String message = intent.getStringExtra("message");
                  Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
              }
          }
-        }
-    };
-
-
-    // Initialize the BroadcastReceiver of showing toast
-    private final BroadcastReceiver showToastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() != null) {
-                String message = intent.getStringExtra("message");
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-            }
         }
     };
 
@@ -1330,23 +1266,21 @@ public class ClassificationActivity extends AppCompatActivity {
 
         // Initialize and set up all IntentFilters here
         IntentFilter filter = new IntentFilter();
-        filter.addAction(UploadForegroundService.ACTION_START_LOADING);
-        filter.addAction(UploadForegroundService.ACTION_STOP_LOADING);
+        filter.addAction(ACTION_START_LOADING);
+        filter.addAction(ACTION_STOP_LOADING);
         registerReceiver(loadingReceiver, filter);
 
         IntentFilter notifyFilesReadyFilter = new IntentFilter();
-        notifyFilesReadyFilter.addAction(UploadForegroundService.ACTION_NOTIFY_TRIES);
+        notifyFilesReadyFilter.addAction(ACTION_NOTIFY_TRIES);
         registerReceiver(notifyFilesReadyReceiver, notifyFilesReadyFilter);
 
         IntentFilter filterForPerImage = new IntentFilter();
-        filterForPerImage.addAction(UploadForegroundService.ACTION_START_LOADING_PER_IMAGE);
-        filterForPerImage.addAction(UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE);
+        filterForPerImage.addAction(ACTION_START_LOADING_PER_IMAGE);
+        filterForPerImage.addAction(ACTION_STOP_LOADING_PER_IMAGE);
         registerReceiver(loadingReceiverForPerImage, filterForPerImage);
 
         registerReceiver(progressUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE"));
         registerReceiver(progressPerImageUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE_PER_IMAGE"));
-        registerReceiver(showToastReceiver, new IntentFilter("ACTION_SHOW_TOAST"));
-
     }
 
     @Override

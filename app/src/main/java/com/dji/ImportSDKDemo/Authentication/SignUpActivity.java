@@ -16,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
+import com.dji.ImportSDKDemo.ApplicationState;
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -59,6 +60,7 @@ public class SignUpActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_up); // Replace with the name of your layout file
+        ApplicationState.isAppStarted = true;
 
         // Initialize Firestore
         db = FirebaseFirestore.getInstance();

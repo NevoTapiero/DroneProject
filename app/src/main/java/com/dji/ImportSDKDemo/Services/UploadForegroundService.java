@@ -7,11 +7,16 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -28,6 +33,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -72,7 +79,14 @@ public class UploadForegroundService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        notificationManager = getSystemService(NotificationManager.class);
+        //Use of notificationManager in API level 23 and above
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            notificationManager = getSystemService(NotificationManager.class);
+        } else { // Use of notificationManager in API level 22 and below
+            notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        }
+
+
         createNotificationChannel();
 
         // Initialize destDir here, where the context is ready
@@ -154,10 +168,21 @@ public class UploadForegroundService extends Service {
                     mediaFileList = mMediaManager.getSDCardFileListSnapshot();
 
                     // Filter out files with 0 bytes and delete them
-                    List<MediaFile> filesToDelete = Objects.requireNonNull(mediaFileList).stream()
-                            .filter(file -> file.getFileSize() == 0)
-                            .collect(Collectors.toList());
-                    
+                    List<MediaFile> filesToDelete = new ArrayList<>();
+
+                    // for api 24 and above
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        filesToDelete = Objects.requireNonNull(mediaFileList).stream()
+                                .filter(file -> file.getFileSize() == 0)
+                                .collect(Collectors.toList());
+                    } else { // for api 23 and below
+                        for (MediaFile file : mediaFileList) {
+                            if (file.getFileSize() == 0) {
+                                filesToDelete.add(file);
+                            }
+                        }
+                    }
+
                     if (!filesToDelete.isEmpty()) {
                         mMediaManager.deleteFiles(filesToDelete, new CommonCallbacks.CompletionCallbackWithTwoParam<List<MediaFile>, DJICameraError>() {
                             @Override
@@ -185,7 +210,14 @@ public class UploadForegroundService extends Service {
     private void sortMediaFiles() {
         // Sort media files by creation time in descending order
         if (mediaFileList != null) {
-            mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                mediaFileList.sort((lhs, rhs) -> Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated()));
+            } else {
+                Collections.sort(mediaFileList, (lhs, rhs) -> {
+                    // Use Long.compare for comparing long values for descending order
+                    return Long.compare(rhs.getTimeCreated(), lhs.getTimeCreated());
+                });
+            }
         }
 
         downloadAllImageFiles();
@@ -448,12 +480,6 @@ public class UploadForegroundService extends Service {
         sendBroadcast(progressUpdatePerImage);
     }
 
-    private void showToastService(String message) {
-        Intent toastMessage = new Intent("ACTION_SHOW_TOAST");
-        toastMessage.putExtra("message", message);
-        sendBroadcast(toastMessage);
-    }
-
 
     private void updateNotification() {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -469,14 +495,23 @@ public class UploadForegroundService extends Service {
 
 
     private void createNotificationChannel() {
-        CharSequence name = getString(R.string.channel_name);
-        String description = getString(R.string.channel_description);
-        int importance = NotificationManager.IMPORTANCE_DEFAULT;
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-        channel.setDescription(description);
-        notificationManager.createNotificationChannel(channel);
+        // Check if we're running on Android Oreo or higher
+        //noinspection StatementWithEmptyBody
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            // The user-visible name of the channel.
+            CharSequence name = getString(R.string.channel_name);
+            // The user-visible description of the channel.
+            String description = getString(R.string.channel_description);
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            notificationManager.createNotificationChannel(channel);
+        } else {
+            // updateNotification() will be called anyway
+        }
     }
-
 
     private void setCameraMode() {
         BaseProduct product = CameraHandler.getProductInstance();
@@ -590,6 +625,10 @@ public class UploadForegroundService extends Service {
 
     }
 
+    private void showToastService(final String text) {
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(() -> Toast.makeText(UploadForegroundService.this, text, Toast.LENGTH_LONG).show());
+    }
 
     @Override
     public void onDestroy() {

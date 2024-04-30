@@ -17,13 +17,13 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
+import com.dji.ImportSDKDemo.ApplicationState;
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
@@ -37,7 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class SignInActivity extends AppCompatActivity {
+public class SignInActivity extends AppCompatActivity implements View.OnClickListener {
 
     private EditText emailInput;
     private EditText passwordInput;
@@ -46,7 +46,6 @@ public class SignInActivity extends AppCompatActivity {
     private static final String TAG = SignInActivity.class.getSimpleName();
     private TextView forgotPasswordText;
     private AppCompatButton logInButton;
-    private SignInButton googleSignInButton;
     private AppCompatButton createAccountButton;
     private ProgressBar mProgressBar;
     private FirebaseFirestore db;
@@ -56,9 +55,11 @@ public class SignInActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_in);
+        ApplicationState.isAppStarted = true;
 
         // Initialize Firestore
         db = FirebaseFirestore.getInstance();
+
 
         // Configure Google Sign-In
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -67,6 +68,7 @@ public class SignInActivity extends AppCompatActivity {
                 .build();
 
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
+
 
         // Initialize the views and listeners setup...
         setupViews();
@@ -80,15 +82,13 @@ public class SignInActivity extends AppCompatActivity {
         passwordInput = findViewById(R.id.passwordInput);
         forgotPasswordText = findViewById(R.id.forgotPasswordText);
         logInButton = findViewById(R.id.logInButton);
-        googleSignInButton = findViewById(R.id.googleSignInButton);
+
         createAccountButton = findViewById(R.id.createAccountButton);
         mProgressBar = findViewById(R.id.loadingProgressBar);
 
     }
 
     private void setupListeners() {
-        googleSignInButton.setOnClickListener(v -> signInWithGoogle());
-
         createAccountButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, SignUpActivity.class);
             startActivity(intent);
@@ -127,12 +127,6 @@ public class SignInActivity extends AppCompatActivity {
         });
     }
 
-
-
-    private void signInWithGoogle() {
-        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
-        googleSignInLauncher.launch(signInIntent);
-    }
 
     private void navigateToMain() {
         Intent intent = new Intent(SignInActivity.this, FlyActivity.class);
@@ -217,4 +211,18 @@ public class SignInActivity extends AppCompatActivity {
             Log.w(TAG, "signInResult:failed code=" + e.getStatusCode(), e);
         }
     }
+
+    @Override
+    public void onClick(View v) {
+        if (v.getId() == R.id.googleSignInButton) {
+            signInWithGoogle();
+
+        }
+    }
+
+    private void signInWithGoogle() {
+        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
+        googleSignInLauncher.launch(signInIntent);
+    }
+
 }

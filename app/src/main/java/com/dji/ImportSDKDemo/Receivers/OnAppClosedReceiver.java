@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.dji.ImportSDKDemo.CameraHandler;
+import com.dji.ImportSDKDemo.Services.DJISDKService;
 
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
@@ -30,6 +31,8 @@ public class OnAppClosedReceiver extends BroadcastReceiver {
 
             setCameraMode();
         }
+        Intent serviceIntent = new Intent(context, DJISDKService.class);
+        context.stopService(serviceIntent);
 
     }
 
