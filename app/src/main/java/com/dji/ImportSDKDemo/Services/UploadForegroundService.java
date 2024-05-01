@@ -56,17 +56,18 @@ import dji.sdk.media.MediaManager;
 
 
 public class UploadForegroundService extends Service {
-    public static final String ACTION_START_LOADING = "com.example.action.START_LOADING";
-    public static final String ACTION_STOP_LOADING = "com.example.action.STOP_LOADING";
-    public static final String ACTION_NOTIFY_TRIES = "com.example.action.NOTIFY_TRIES";
-    public static final String ACTION_START_LOADING_PER_IMAGE = "com.example.action.ACTION_START_LOADING_PER_IMAGE";
-    public static final String ACTION_STOP_LOADING_PER_IMAGE = "com.example.action.ACTION_STOP_LOADING_PER_IMAGE";
+    public static final String ACTION_START_LOADING = "com.dji.ImportSDKDemo.action.START_LOADING";
+    public static final String ACTION_STOP_LOADING = "com.dji.ImportSDKDemo.action.STOP_LOADING";
+    public static final String ACTION_NOTIFY_TRIES = "com.dji.ImportSDKDemo.action.NOTIFY_TRIES";
+    public static final String ACTION_START_LOADING_PER_IMAGE = "com.dji.ImportSDKDemo.action.ACTION_START_LOADING_PER_IMAGE";
+    public static final String ACTION_STOP_LOADING_PER_IMAGE = "com.dji.ImportSDKDemo.action.ACTION_STOP_LOADING_PER_IMAGE";
+    public static final String ACTION_PROGRESS_UPDATE = "com.dji.ImportSDKDemo.action.ACTION_PROGRESS_UPDATE";
+    public static final String ACTION_PROGRESS_UPDATE_PER_IMAGE = "com.dji.ImportSDKDemo.action.ACTION_PROGRESS_UPDATE_PER_IMAGE";
     private List<MediaFile> mediaFileList;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     Boolean fromOnDestroy = false;
     private String batchId;
-    private String bactchTimeStamp;
-
+    private String batchTimeStamp;
     private int successfulUploads = 0; // Counter for successful uploads
     int totalFiles;
     private static final String CHANNEL_ID = "ForegroundServiceChannel";
@@ -115,7 +116,7 @@ public class UploadForegroundService extends Service {
         // Call updateNotification at the beginning to setup foreground service
         updateNotification();
 
-        bactchTimeStamp = generateBatchTimeStamp(); // Ensure this generates a unique ID for each batch
+        batchTimeStamp = generateBatchTimeStamp(); // Ensure this generates a unique ID for each batch
 
         initMediaManager();
 
@@ -387,7 +388,7 @@ public class UploadForegroundService extends Service {
 
 
                             Map<String, Object> batchDocData = new HashMap<>();
-                            batchDocData.put("timestamp", bactchTimeStamp);
+                            batchDocData.put("timestamp", batchTimeStamp);
 
                             FirebaseFirestore.getInstance()
                                     .collection("Users")
@@ -468,14 +469,14 @@ public class UploadForegroundService extends Service {
 
 
     private void updateProgress(int progress) {
-        Intent progressUpdateBar = new Intent("ACTION_PROGRESS_UPDATE");
+        Intent progressUpdateBar = new Intent(ACTION_PROGRESS_UPDATE);
         progressUpdateBar.putExtra("message", "files uploaded: " + successfulUploads + " of " + totalFiles);
         progressUpdateBar.putExtra("progress", progress);
         sendBroadcast(progressUpdateBar);
     }
 
     private void updateProgressPerImage(int progress) {
-        Intent progressUpdatePerImage = new Intent("ACTION_PROGRESS_UPDATE_PER_IMAGE");
+        Intent progressUpdatePerImage = new Intent(ACTION_PROGRESS_UPDATE_PER_IMAGE);
         progressUpdatePerImage.putExtra("progress", progress);
         sendBroadcast(progressUpdatePerImage);
     }

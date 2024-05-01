@@ -5,13 +5,14 @@ import static com.dji.ImportSDKDemo.ExtractImageInformation.extractImageTime;
 import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.fetchData;
 import static com.dji.ImportSDKDemo.HistoryLog.LogFunctions.uploadListToFirestore;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_NOTIFY_TRIES;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_PROGRESS_UPDATE;
+import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_PROGRESS_UPDATE_PER_IMAGE;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_START_LOADING;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_START_LOADING_PER_IMAGE;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE;
 import static com.dji.ImportSDKDemo.ShowToast.showToast;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -22,7 +23,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -47,7 +47,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -109,7 +108,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private final List<String> selectedBatches = new ArrayList<>();
     private String batchId;
-    private String bactchTimeStamp;
+    private String batchTimeStamp;
     private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
     private StringBuilder logBatch = new StringBuilder();
     Boolean fromOnDestroy = false;
@@ -216,7 +215,7 @@ public class ClassificationActivity extends AppCompatActivity {
             fetchAndUploadButton.setSelected(true);
             buttonUploadPanel.setEnabled(false);
             if (!mediaFileList.isEmpty()){
-                checkAndRequestPermissions();
+                askForBatchNameDrone(this);
             }else {
                 showToast("Drone Disconnected, please reconnect the drone and try again", getApplicationContext());
                 buttonUploadPanel.setEnabled(true);
@@ -589,7 +588,7 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
     private void launchImagePicker() {
-        bactchTimeStamp = generateBatchTimeStamp();
+        batchTimeStamp = generateBatchTimeStamp();
         askForBatchName(this); // Ensure this generates a unique ID for each batch
     }
 
@@ -804,7 +803,7 @@ public class ClassificationActivity extends AppCompatActivity {
                             }
 
                             Map<String, Object> batchDocData = new HashMap<>();
-                            batchDocData.put("timestamp", bactchTimeStamp);
+                            batchDocData.put("timestamp", batchTimeStamp);
 
                             FirebaseFirestore.getInstance()
                                     .collection("Users")
@@ -991,42 +990,14 @@ public class ClassificationActivity extends AppCompatActivity {
             } else {
                 // Notify the user that some permissions were denied
                 showToast("Some permissions were denied.", getApplicationContext());
-                checkAndRequestPermissions();
+                askForBatchNameDrone(this);
             }
-        }
-    }
-
-
-
-    // This method could be called when you want to request the necessary permissions
-    public void checkAndRequestPermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
-        // Check if location permissions are granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // Request location permission
-            permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-
-
-        // Check for notification permission on Android Tiramisu (API level 33) and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-
-        // If there are permissions that need to be requested, request them
-        if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), REQUEST_PERMISSION_CODE);
-        } else {
-            // All permissions are granted, proceed with your functionality
-            askForBatchNameDrone(this);
         }
     }
 
 
     // Initialize the BroadcastReceiver of the downloadBar
-    private final BroadcastReceiver loadingReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver fromUploadServiceReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction() != null) {
@@ -1035,7 +1006,7 @@ public class ClassificationActivity extends AppCompatActivity {
                         showLoading(true);
                         break;
                     case ACTION_STOP_LOADING:
-                        String message = intent.getStringExtra("message");
+                        String messageSTOP_LOADING = intent.getStringExtra("message");
                         int imageCount = intent.getIntExtra("imageCount", 0);
                         selectedBatches.clear();
                         selectedBatches.add(intent.getStringExtra("batchID"));
@@ -1043,70 +1014,32 @@ public class ClassificationActivity extends AppCompatActivity {
                         fetchAndUploadButton.setSelected(false);
                         buttonUploadPanel.setEnabled(true);
                         updateImageCountUI(imageCount);
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, messageSTOP_LOADING, Toast.LENGTH_SHORT).show();
                         hideLoading();
                         initMediaManager();
-                    break;
-                }
-            }
-        }
-    };
-
-
-    // Initialize the BroadcastReceiver of the downloadBar per image
-    private final BroadcastReceiver loadingReceiverForPerImage = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() != null) {
-                switch (intent.getAction()) {
+                        break;
                     case ACTION_START_LOADING_PER_IMAGE:
                         showLoadingPerImage();
                         break;
                     case ACTION_STOP_LOADING_PER_IMAGE:
                         hideLoadingPerImage();
-                        //updateAdapterWithNewData(mediaFileList);
                         break;
+                    case ACTION_NOTIFY_TRIES:
+                        String messageNOTIFY_TRIES = intent.getStringExtra("message");
+                        Toast.makeText(context, messageNOTIFY_TRIES, Toast.LENGTH_SHORT).show();
+                    case ACTION_PROGRESS_UPDATE:
+                        int progressPROGRESS_UPDATE = intent.getIntExtra("progress", 0);
+                        String messagePROGRESS_UPDATE = intent.getStringExtra("message");
+                        Toast.makeText(context, messagePROGRESS_UPDATE, Toast.LENGTH_SHORT).show();
+                        progressBar.setProgress(progressPROGRESS_UPDATE);
+                    case ACTION_PROGRESS_UPDATE_PER_IMAGE:
+                        int progressUPDATE_PER_IMAGE = intent.getIntExtra("progress", 0);
+                        progressBarPerImage.setProgress(progressUPDATE_PER_IMAGE);
                 }
             }
         }
     };
 
-    // Initialize the BroadcastReceiver of the downloadBar
-    private final BroadcastReceiver progressUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            // Update progress bar
-            int progress = intent.getIntExtra("progress", 0);
-            String message = intent.getStringExtra("message");
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-            progressBar.setProgress(progress);
-        }
-    };
-
-
-    // Initialize the BroadcastReceiver of the downloadBar per image
-    private final BroadcastReceiver progressPerImageUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            // Update progress bar
-            int progress = intent.getIntExtra("progress", 0);
-            progressBarPerImage.setProgress(progress);
-        }
-    };
-
-
-    // Initialize the BroadcastReceiver of notifying fetching tries
-    private final BroadcastReceiver notifyFilesReadyReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-         if (intent.getAction() != null) {
-             if (intent.getAction().equals(ACTION_NOTIFY_TRIES)) {
-                 String message = intent.getStringExtra("message");
-                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-             }
-         }
-        }
-    };
 
     private void showLoading(boolean showBar) {
         if (showBar) {
@@ -1268,31 +1201,19 @@ public class ClassificationActivity extends AppCompatActivity {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_START_LOADING);
         filter.addAction(ACTION_STOP_LOADING);
-        registerReceiver(loadingReceiver, filter);
-
-        IntentFilter notifyFilesReadyFilter = new IntentFilter();
-        notifyFilesReadyFilter.addAction(ACTION_NOTIFY_TRIES);
-        registerReceiver(notifyFilesReadyReceiver, notifyFilesReadyFilter);
-
-        IntentFilter filterForPerImage = new IntentFilter();
-        filterForPerImage.addAction(ACTION_START_LOADING_PER_IMAGE);
-        filterForPerImage.addAction(ACTION_STOP_LOADING_PER_IMAGE);
-        registerReceiver(loadingReceiverForPerImage, filterForPerImage);
-
-        registerReceiver(progressUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE"));
-        registerReceiver(progressPerImageUpdateReceiver, new IntentFilter("ACTION_PROGRESS_UPDATE_PER_IMAGE"));
+        filter.addAction(ACTION_NOTIFY_TRIES);
+        filter.addAction(ACTION_START_LOADING_PER_IMAGE);
+        filter.addAction(ACTION_STOP_LOADING_PER_IMAGE);
+        filter.addAction(ACTION_PROGRESS_UPDATE_PER_IMAGE);
+        filter.addAction(ACTION_PROGRESS_UPDATE);
+        registerReceiver(fromUploadServiceReceiver, filter);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
 
-        // Unregister all receivers here
-        unregisterReceiver(loadingReceiver);
-        unregisterReceiver(notifyFilesReadyReceiver);
-        unregisterReceiver(loadingReceiverForPerImage);
-        unregisterReceiver(progressUpdateReceiver);
-        unregisterReceiver(progressPerImageUpdateReceiver);
+        unregisterReceiver(fromUploadServiceReceiver);
     }
 
 
@@ -1305,7 +1226,4 @@ public class ClassificationActivity extends AppCompatActivity {
         }
         super.onDestroy();
     }
-
-
-
 }

@@ -33,9 +33,9 @@ public class DJISDKService extends Service {
     private static final String CHANNEL_ID = "DJI_SDK_CHANNEL";
     private static final String TAG = DJISDKService.class.getName();
     private final AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
-    public static final String PRODUCT_DISCONNECTED = "com.dji.ImportSDKDemo.PRODUCT_DISCONNECTED";
-    public static final String PRODUCT_CONNECTED = "com.dji.ImportSDKDemo.PRODUCT_CONNECTED";
-    public static final String REGISTERED = "com.dji.ImportSDKDemo.REGISTERED";
+    public static final String PRODUCT_DISCONNECTED = "com.dji.ImportSDKDemo.action.PRODUCT_DISCONNECTED";
+    public static final String PRODUCT_CONNECTED = "com.dji.ImportSDKDemo.action.PRODUCT_CONNECTED";
+    public static final String REGISTERED = "com.dji.ImportSDKDemo.action.REGISTERED";
 
 
     @Override
