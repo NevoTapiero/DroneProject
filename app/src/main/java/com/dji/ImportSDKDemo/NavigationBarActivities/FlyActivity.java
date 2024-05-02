@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,8 +26,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.CameraHandler;
 import com.dji.ImportSDKDemo.GoFlyActivity;
 import com.dji.ImportSDKDemo.R;
@@ -40,7 +40,7 @@ import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
 
-public class FlyActivity extends AppCompatActivity implements View.OnClickListener {
+public class FlyActivity extends BaseActivity implements View.OnClickListener {
     private static final String TAG = FlyActivity.class.getName();
     protected Button loginBtn, logoutBtn, mBtnOpen;
     protected TextView mTextConnectionStatus, mTextProduct;
@@ -48,7 +48,6 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
     private static final String LAST_USED_BRIDGE_IP = "bridgeip";
 
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,7 +75,7 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
             //noinspection StatementWithEmptyBody
             if (itemId == R.id.nav_fly) {
             } else if (itemId == R.id.nav_scan) {
-                startActivity(new Intent(this, ClassificationActivity.class));
+                startActivity(new Intent(this, ScanActivity.class));
 
             } else if (itemId == R.id.nav_gallery) {
                 startActivity(new Intent(this, GalleryActivity.class));
@@ -204,7 +203,11 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         droneStatusFilter.addAction(PRODUCT_DISCONNECTED);
         droneStatusFilter.addAction(REGISTERED);
         droneStatusFilter.addAction(PRODUCT_CONNECTED);
-        registerReceiver(droneStatusReceiver, droneStatusFilter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(droneStatusReceiver, droneStatusFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(droneStatusReceiver, droneStatusFilter);
+        }
 
 
     }
@@ -224,6 +227,7 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         super.onDestroy();
         Log.e(TAG, "onDestroy");
     }
+
 
 
     private void checkCameraMode() {

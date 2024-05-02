@@ -4,14 +4,14 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.firebase.auth.FirebaseAuth;
 
-public class PasswordResetActivity extends AppCompatActivity {
+import java.util.Objects;
+
+public class PasswordResetActivity extends BaseActivity {
 
     private EditText emailEditText;
     private FirebaseAuth mAuth;
@@ -31,12 +31,17 @@ public class PasswordResetActivity extends AppCompatActivity {
                 mAuth.sendPasswordResetEmail(email)
                         .addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
-                                Toast.makeText(PasswordResetActivity.this, "Reset link sent to your email", Toast.LENGTH_LONG).show();
+                                showToast("Reset link sent to your email", this);
                             } else {
-                                Toast.makeText(PasswordResetActivity.this, "Failed to send reset email", Toast.LENGTH_LONG).show();
+                                showToast("Failed to send reset link" + Objects.requireNonNull(task.getException()).getMessage(), this);
                             }
                         });
             }
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

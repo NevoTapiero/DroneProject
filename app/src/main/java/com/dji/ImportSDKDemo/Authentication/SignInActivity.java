@@ -9,15 +9,14 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
 import com.dji.ImportSDKDemo.ApplicationState;
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -37,7 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class SignInActivity extends AppCompatActivity implements View.OnClickListener {
+public class SignInActivity extends BaseActivity implements View.OnClickListener {
 
     private EditText emailInput;
     private EditText passwordInput;
@@ -104,7 +103,7 @@ public class SignInActivity extends AppCompatActivity implements View.OnClickLis
             String password = passwordInput.getText().toString().trim();
 
             if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(SignInActivity.this, "Email and password cannot be empty", Toast.LENGTH_SHORT).show();
+                showToast("Email and password cannot be empty", this);
                 return;
             }
 
@@ -113,15 +112,13 @@ public class SignInActivity extends AppCompatActivity implements View.OnClickLis
                     .addOnCompleteListener(SignInActivity.this, task -> {
                         if (task.isSuccessful()) {
                             // Sign in success
-                            Toast.makeText(SignInActivity.this, "Authentication successful.",
-                                    Toast.LENGTH_SHORT).show();
+                            showToast("Sign in successful", this);
 
                             // Navigate to the main activity
                             navigateToMain();
                         } else {
                             // If sign in fails, display a message to the user.
-                            Toast.makeText(SignInActivity.this, "Authentication failed.",
-                                    Toast.LENGTH_SHORT).show();
+                            showToast("Authentication failed: " + Objects.requireNonNull(task.getException()).getMessage(), this);
                         }
                     });
         });
@@ -154,20 +151,20 @@ public class SignInActivity extends AppCompatActivity implements View.OnClickLis
                                         mProgressBar.setVisibility(View.VISIBLE);
                                         setScreenTouchable(false);
                                         Log.d(TAG, "DocumentSnapshot successfully written!");
-                                        Toast.makeText(SignInActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
+                                        showToast("User registered and data saved", this);
 
                                         // Navigate to the next activity or update the UI
                                         navigateToMain();
                                     })
                                     .addOnFailureListener(e -> {
                                         Log.w(TAG, "Error writing document", e);
-                                        Toast.makeText(SignInActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
+                                        showToast("Error saving user data", this);
                                     });
                         }
                     } else {
                         // If sign in fails, display a message to the user.
                         Log.w(TAG, "signInWithCredential:failure", task.getException());
-                        Toast.makeText(SignInActivity.this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
+                        showToast("Authentication failed: " + Objects.requireNonNull(task.getException()).getMessage(), this);
                     }
                 });
     }
@@ -225,4 +222,8 @@ public class SignInActivity extends AppCompatActivity implements View.OnClickLis
         googleSignInLauncher.launch(signInIntent);
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
 }

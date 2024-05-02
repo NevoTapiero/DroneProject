@@ -10,17 +10,12 @@
         android:id="@+id/uploadButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
+        android:layout_marginStart="60dp"
+        android:layout_marginTop="4dp"
         android:text="Choose"
         android:textSize="20sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHorizontal_bias="0.894"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.146" />
-
+        app:layout_constraintStart_toEndOf="@+id/buttonUploadPanel"
+        app:layout_constraintTop_toTopOf="@+id/buttonUploadPanel" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/buttonUploadPanel"
@@ -29,10 +24,10 @@
         android:background="@drawable/shadow_states"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.758"
+        app:layout_constraintHorizontal_bias="0.745"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.219">
+        app:layout_constraintVertical_bias="0.075">
 
 
         <androidx.appcompat.widget.AppCompatButton
@@ -45,20 +40,17 @@
             android:text="Upload Files"
             android:textColor="@color/white"
             android:textSize="50sp"
-            app:layout_constraintHorizontal_bias="0.759"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.198" />
+            app:layout_constraintTop_toTopOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/buttonScanPanel"
         android:layout_width="275dp"
         android:layout_height="275dp"
         android:layout_marginEnd="240dp"
-        android:layout_marginBottom="124dp"
+        android:layout_marginBottom="96dp"
         android:background="@drawable/shadow_states"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -82,46 +74,12 @@
         android:id="@+id/rvLogHistory"
         android:layout_width="296dp"
         android:layout_height="555dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.287"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.362"/>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/mediaFileRecyclerView"
-        android:layout_width="198dp"
-        android:layout_height="357dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginTop="499dp"
-        android:scrollbars="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHorizontal_bias="0.048"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0" />
-
-    <FrameLayout
-        android:id="@+id/frameLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/mediaFileRecyclerView"
-        android:layout_alignEnd="@+id/mediaFileRecyclerView"
-        android:layout_marginTop="43dp"
-        android:layout_marginEnd="41dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-    </FrameLayout>
-
 
     <ProgressBar
         android:id="@+id/downloadProgressBar"
@@ -143,7 +101,6 @@
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="225dp"
         android:layout_height="225dp"
-        android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         android:max="100"
         android:visibility="invisible"
@@ -157,50 +114,12 @@
         android:id="@+id/selectBatchesButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
+        android:layout_marginStart="44dp"
+        android:layout_marginTop="16dp"
         android:text="Select Batch"
         android:textSize="20sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.943"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.497" />
-
-    <FrameLayout
-        android:id="@+id/overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/transparent"
-        android:visibility="gone" />
-
-    <ProgressBar
-        android:id="@+id/loadingProgressBar"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="@+id/mediaFileRecyclerView"
-        app:layout_constraintEnd_toEndOf="@+id/mediaFileRecyclerView"
-        app:layout_constraintHorizontal_bias="0.471"
-        app:layout_constraintStart_toStartOf="@+id/mediaFileRecyclerView"
-        app:layout_constraintTop_toTopOf="@+id/mediaFileRecyclerView"
-        app:layout_constraintVertical_bias="0.484" />
-
-    <TextView
-        android:id="@+id/progressBarText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text=" "
-        android:textColor="@android:color/black"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.077"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.536" />
-
+        app:layout_constraintStart_toEndOf="@+id/buttonScanPanel"
+        app:layout_constraintTop_toTopOf="@+id/buttonScanPanel" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_navigation"
@@ -211,6 +130,60 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- Overlay View containing a RecyclerView -->
+    <LinearLayout
+        android:id="@+id/overlayLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#AA000000"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- RecyclerView within the overlay -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/mediaFileRecyclerView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:scrollbars="vertical"
+            android:layout_gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintHorizontal_bias="0.048"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0">
+        </androidx.recyclerview.widget.RecyclerView>
+    </LinearLayout>
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/openOverlayDroneFiles"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:text="View Drone Files"
+        android:background="@drawable/circle_background"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.067"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.82" />
+
+    <FrameLayout
+        android:id="@+id/dontTouchOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#AA000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

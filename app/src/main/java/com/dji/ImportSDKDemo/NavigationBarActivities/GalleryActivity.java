@@ -1,6 +1,5 @@
 package com.dji.ImportSDKDemo.NavigationBarActivities;
 
-import static com.dji.ImportSDKDemo.ShowToast.showToast;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -15,8 +14,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.Library.CustomActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -30,14 +28,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class GalleryActivity extends AppCompatActivity {
+public class GalleryActivity extends BaseActivity {
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private String batchId;
     private TextView selectedBatch;
-    private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
-    private final List<String> batchNames = new ArrayList<>();
+    private final List<String> batchNames = new ArrayList<>(), categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -52,7 +49,7 @@ public class GalleryActivity extends AppCompatActivity {
 
         // Check if the Intent has the extra "batchId"
         if (intent != null && intent.hasExtra("batchId")) {
-            batchId = intent.getStringExtra("batchId"); // Extract the batch ID sent from ClassificationActivity
+            batchId = intent.getStringExtra("batchId"); // Extract the batch ID sent from ScanActivity
             selectedBatch.setText("Selected Batch: " + batchId);
 
         }
@@ -71,7 +68,7 @@ public class GalleryActivity extends AppCompatActivity {
                 startActivity(new Intent(this, FlyActivity.class));
 
             } else if (itemId == R.id.nav_scan) {
-                startActivity(new Intent(this, ClassificationActivity.class));
+                startActivity(new Intent(this, ScanActivity.class));
 
             } else //noinspection StatementWithEmptyBody
                 if (itemId == R.id.nav_gallery) {
@@ -205,5 +202,10 @@ public class GalleryActivity extends AppCompatActivity {
         intent.putExtra("category", category);
         intent.putExtra("batchID", batchId);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

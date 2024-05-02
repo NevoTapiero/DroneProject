@@ -3,10 +3,10 @@ package com.dji.ImportSDKDemo.Library;
 import android.os.Bundle;
 import android.util.Log;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class CustomActivity extends AppCompatActivity {
+public class CustomActivity extends BaseActivity {
     private static final String TAG = "MyApp"; // Define a tag at the top of your class
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
@@ -79,5 +79,10 @@ public class CustomActivity extends AppCompatActivity {
 
     private void updateImageList(List<GalleryAdapter.ImageData> imageDataList) {
         adapter.updateData(imageDataList);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

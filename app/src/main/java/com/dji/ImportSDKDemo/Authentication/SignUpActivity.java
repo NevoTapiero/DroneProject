@@ -8,15 +8,14 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
 import com.dji.ImportSDKDemo.ApplicationState;
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 import com.dji.ImportSDKDemo.R;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -37,7 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class SignUpActivity extends AppCompatActivity {
+public class SignUpActivity extends BaseActivity {
 
     private EditText firstNameInput;
     private EditText lastNameInput;
@@ -122,22 +121,22 @@ public class SignUpActivity extends AppCompatActivity {
                     newUser.getLastName().isEmpty() ||
                     newUser.getEmail().isEmpty() ||
                     newUser.getPassword().isEmpty()) {
-                Toast.makeText(SignUpActivity.this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
+                showToast("Please fill in all fields", this);
                 return;
             }
 
             if (!newUser.getEmail().equals(reEnterEmail)) {
-                Toast.makeText(SignUpActivity.this, "Emails do not match", Toast.LENGTH_SHORT).show();
+                showToast("Emails do not match", this);
                 return;
             }
 
             if (!newUser.getPassword().equals(reEnterPassword)) {
-                Toast.makeText(SignUpActivity.this, "Passwords do not match", Toast.LENGTH_SHORT).show();
+                showToast("Passwords do not match", this);
                 return;
             }
 
             if (newUser.getPassword().length() < 6) {
-                Toast.makeText(SignUpActivity.this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+                showToast("Password must be at least 6 characters", this);
                 return;
             }
 
@@ -159,19 +158,19 @@ public class SignUpActivity extends AppCompatActivity {
                                         .set(userData)
                                         .addOnSuccessListener(aVoid -> {
                                             Log.d(TAG, "DocumentSnapshot successfully written!");
-                                            Toast.makeText(SignUpActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
+                                            showToast("User registered and data saved", this);
 
                                             // Proceed to the next screen or activity
                                             navigateToMain();
                                         })
                                         .addOnFailureListener(e -> {
                                             Log.w(TAG, "Error writing document", e);
-                                            Toast.makeText(SignUpActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
+                                            showToast("Error saving user data", this);
                                         });
                             }
                         } else {
                             // If sign up fails, display a message to the user.
-                            Toast.makeText(SignUpActivity.this, "Authentication failed: " + Objects.requireNonNull(task.getException()).getMessage(), Toast.LENGTH_SHORT).show();
+                            showToast("Sign up failed: " + Objects.requireNonNull(task.getException()).getMessage(), this);
                         }
                     });
 
@@ -205,20 +204,20 @@ public class SignUpActivity extends AppCompatActivity {
                                         mProgressBar.setVisibility(View.VISIBLE);
                                         setScreenTouchable(false);
                                         Log.d(TAG, "DocumentSnapshot successfully written!");
-                                        Toast.makeText(SignUpActivity.this, "User registered and data saved", Toast.LENGTH_SHORT).show();
+                                        showToast("User registered and data saved", this);
 
                                         // Navigate to the next activity or update the UI
                                         navigateToMain();
                                     })
                                     .addOnFailureListener(e -> {
                                         Log.w(TAG, "Error writing document", e);
-                                        Toast.makeText(SignUpActivity.this, "Error saving user data", Toast.LENGTH_SHORT).show();
+                                        showToast("Error saving user data", this);
                                     });
                         }
                     } else {
                         // If sign in fails, display a message to the user.
                         Log.w(TAG, "signInWithCredential:failure", task.getException());
-                        Toast.makeText(SignUpActivity.this, "Authentication Failed.", Toast.LENGTH_SHORT).show();
+                        showToast("Authentication failed.", this);
                     }
                 });
     }
@@ -268,5 +267,10 @@ public class SignUpActivity extends AppCompatActivity {
         } catch (ApiException e) {
             Log.w(TAG, "signInResult:failed code=" + e.getStatusCode(), e);
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

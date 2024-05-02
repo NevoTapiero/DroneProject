@@ -2,7 +2,7 @@ package com.dji.ImportSDKDemo.HistoryLog;
 
 import android.util.Log;
 
-import com.dji.ImportSDKDemo.NavigationBarActivities.ClassificationActivity;
+import com.dji.ImportSDKDemo.NavigationBarActivities.ScanActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -21,7 +21,7 @@ public class LogFunctions {
 
     public static void uploadListToFirestore(LogEntry stringData) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        fetchData(new ClassificationActivity.FirestoreCallback() {
+        fetchData(new ScanActivity.FirestoreCallback() {
             @Override
             public void onComplete(List<LogEntry> result) {
                 /*if(result.size() == 20){
@@ -45,7 +45,7 @@ public class LogFunctions {
     }
 
 
-    public static void fetchData(ClassificationActivity.FirestoreCallback callback) {
+    public static void fetchData(ScanActivity.FirestoreCallback callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("Users").document(Objects.requireNonNull(user).getUid())
                 .get()

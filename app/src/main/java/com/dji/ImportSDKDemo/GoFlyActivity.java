@@ -1,5 +1,5 @@
 package com.dji.ImportSDKDemo;
-import android.app.Activity;
+
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,11 +12,13 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+
 import androidx.annotation.NonNull;
 
 import com.dji.ImportSDKDemo.NavigationBarActivities.FlyActivity;
 
 import java.util.Locale;
+
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
 import dji.common.product.Model;
@@ -29,7 +31,7 @@ import dji.sdk.codec.DJICodecManager;
 import dji.sdk.useraccount.UserAccountManager;
 
 //TODO: Handle API level 30;
-public class GoFlyActivity extends Activity implements SurfaceTextureListener,OnClickListener{
+public class GoFlyActivity extends BaseActivity implements SurfaceTextureListener,OnClickListener{
 
     private static final String TAG = FlyActivity.class.getName();
     protected VideoFeeder.VideoDataListener mReceivedVideoDataListener = null;
@@ -142,6 +144,7 @@ public class GoFlyActivity extends Activity implements SurfaceTextureListener,On
     protected void onDestroy() {
         Log.e(TAG, "onDestroy");
         uninitPreviewer();
+        finish();
         super.onDestroy();
     }
 

@@ -5,10 +5,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -18,10 +16,11 @@ import com.dji.ImportSDKDemo.Services.DJISDKService;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PermissionActivity extends AppCompatActivity {
+public class PermissionActivity extends BaseActivity {
 
     private final List<String> permissionsNeeded = new ArrayList<>();
     private static final int REQUEST_PERMISSION_CODE = 12345;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,7 +40,7 @@ public class PermissionActivity extends AppCompatActivity {
 
 
         String version = Build.VERSION.SDK_INT + "";
-        Toast.makeText(this, version, Toast.LENGTH_SHORT).show();
+        showToast("SDK Version: " + version, this);
 
         // Check for notification permission on Android 11 and above
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -60,8 +59,8 @@ public class PermissionActivity extends AppCompatActivity {
 
 
         checkAndRequestPermissions();
-
     }
+
 
     /**
      * Checks if there is any missing permissions, and
@@ -104,8 +103,7 @@ public class PermissionActivity extends AppCompatActivity {
             if (allPermissionsGranted()) {
                 proceedToApp();
             } else {
-                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
-                //finish();
+                showToast("Permissions not granted by the user.", this);
             }
         }
     }

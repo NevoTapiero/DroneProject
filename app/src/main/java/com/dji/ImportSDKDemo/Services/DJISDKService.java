@@ -1,7 +1,7 @@
 package com.dji.ImportSDKDemo.Services;
 
 import static com.dji.ImportSDKDemo.ApplicationState.isAppStarted;
-import static com.dji.ImportSDKDemo.Receivers.OnDJIUSBAttachedReceiver.USB_ACCESSORY_ATTACHED;
+import static com.dji.ImportSDKDemo.Receivers.OnDJIUSBAttachedReceiver.USB_ACCESSORY_ATTACHED_WHEN_APP_STARTED;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
@@ -12,6 +12,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -48,8 +49,12 @@ public class DJISDKService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        IntentFilter filter = new IntentFilter(USB_ACCESSORY_ATTACHED);
-        registerReceiver(usbAttachedReceiver, filter);
+        IntentFilter filter = new IntentFilter(USB_ACCESSORY_ATTACHED_WHEN_APP_STARTED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbAttachedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(usbAttachedReceiver, filter);
+        }
 
         isAppStarted = true;
         //Use of notificationManager in API level 23 and above
@@ -69,16 +74,13 @@ public class DJISDKService extends Service {
     private final BroadcastReceiver usbAttachedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (USB_ACCESSORY_ATTACHED.equals(intent.getAction())) {
+            if (USB_ACCESSORY_ATTACHED_WHEN_APP_STARTED.equals(intent.getAction())) {
                 // Handle the USB accessory attached event
-                handleUsbAccessoryAttached();
+                startSDKRegistration();
             }
         }
     };
 
-    private void handleUsbAccessoryAttached() {
-        startSDKRegistration();
-    }
 
 
     private void updateNotification() {
@@ -126,7 +128,6 @@ public class DJISDKService extends Service {
 
 
     private void startSDKRegistration() {
-        if (isRegistrationInProgress.compareAndSet(false, true)) {
             AsyncTask.execute(() -> DJISDKManager.getInstance().registerApp(DJISDKService.this.getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
                 @Override
                 public void onRegister(DJIError djiError) {
@@ -196,7 +197,6 @@ public class DJISDKService extends Service {
                 }
             }));
         }
-    }
 
     private void showToast(final String text) {
         Handler handler = new Handler(Looper.getMainLooper());
@@ -206,8 +206,9 @@ public class DJISDKService extends Service {
     @Override
     public void onDestroy() {
         DJISDKManager.getInstance().stopConnectionToProduct();
-        super.onDestroy();
         unregisterReceiver(usbAttachedReceiver);
         stopForeground(true);
+        super.onDestroy();
     }
+
 }

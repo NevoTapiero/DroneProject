@@ -11,7 +11,6 @@ import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STAR
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_START_LOADING_PER_IMAGE;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING;
 import static com.dji.ImportSDKDemo.Services.UploadForegroundService.ACTION_STOP_LOADING_PER_IMAGE;
-import static com.dji.ImportSDKDemo.ShowToast.showToast;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -23,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -39,17 +39,16 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.dji.ImportSDKDemo.BaseActivity;
 import com.dji.ImportSDKDemo.CameraHandler;
 import com.dji.ImportSDKDemo.DroneMedia.FileListAdapter;
 import com.dji.ImportSDKDemo.HistoryLog.ClassificationCount;
@@ -99,11 +98,10 @@ import dji.sdk.base.BaseProduct;
 import dji.sdk.media.MediaFile;
 import dji.sdk.media.MediaManager;
 
-public class ClassificationActivity extends AppCompatActivity {
+public class ScanActivity extends BaseActivity {
     private static final int REQUEST_PERMISSION_CODE = 12345;
     private int successfulUploads = 0; // Counter for successful uploads
-    private TextView tvLoadingProgressBar;
-    private static final String TAG = "ClassificationActivity";
+    private static final String TAG = "ScanActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private final List<String> selectedBatches = new ArrayList<>(), categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
     private String batchId, batchTimeStamp;
@@ -112,8 +110,11 @@ public class ClassificationActivity extends AppCompatActivity {
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     private MediaManager mMediaManager;
     private FileListAdapter mListAdapter;
+    private boolean overlayState = false;
+    private View overlayLayout;
+
     private final List<MediaFile> mediaFileList = new ArrayList<>();
-    private ProgressBar progressBar, mProgressBar, progressBarPerImage;
+    private ProgressBar progressBar, progressBarPerImage;
     private RecyclerView rvLogEntry;
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
@@ -126,8 +127,6 @@ public class ClassificationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_classification);
 
         initUI();
-        initMediaManager();
-
 
         // Initialize fusedLocationClient and other components
         imagePickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -150,12 +149,9 @@ public class ClassificationActivity extends AppCompatActivity {
     private void initUI() {
         progressBar = findViewById(R.id.downloadProgressBar);
         progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
-        mProgressBar = findViewById(R.id.loadingProgressBar);
-        tvLoadingProgressBar = findViewById(R.id.progressBarText);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.nav_scan);
-
 
         // Set listener for navigation item selection using if-else instead of switch
         bottomNav.setOnItemSelectedListener(item -> {
@@ -202,12 +198,13 @@ public class ClassificationActivity extends AppCompatActivity {
             }
         });
 
+        overlayLayout = findViewById(R.id.overlayLayout);
+        Button openOverlayDroneFiles = findViewById(R.id.openOverlayDroneFiles);
+        openOverlayDroneFiles.setOnClickListener(v -> toggleOverlay());
+
         if (CameraHandler.getProductInstance() != null) {
-            mProgressBar.setVisibility(View.VISIBLE);
-            tvLoadingProgressBar.setText(R.string.drone_connected);
             fetchAndUploadButton.setEnabled(true);
         }else {
-            tvLoadingProgressBar.setText(R.string.drone_disconnected);
             fetchAndUploadButton.setEnabled(false);
         }
 
@@ -234,8 +231,8 @@ public class ClassificationActivity extends AppCompatActivity {
                         List<String> batchNames = Arrays.asList(item.getBatchName().split(","));
                         showClassifiedBatchSelectionDialog(batchNames);
                     }else {
-                        Toast.makeText(ClassificationActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(ClassificationActivity.this, GalleryActivity.class);
+                        Toast.makeText(ScanActivity.this, "Clicked: " + item.getMessage(), Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(ScanActivity.this, GalleryActivity.class);
                         intent.putExtra("batchId", item.getBatchName());
                         startActivity(intent);
                         finish();
@@ -255,7 +252,15 @@ public class ClassificationActivity extends AppCompatActivity {
 
     }
 
-
+    private void toggleOverlay() {
+        if (overlayState) {
+            overlayLayout.setVisibility(View.GONE);
+        } else {
+            overlayLayout.setVisibility(View.VISIBLE);
+            initMediaManager();
+        }
+        overlayState = !overlayState; // Toggle the state
+    }
 
     private void startUploadService() {
         Intent serviceIntent = new Intent(this, UploadForegroundService.class);
@@ -371,10 +376,6 @@ public class ClassificationActivity extends AppCompatActivity {
                     // Update UI to reflect that the media file list is ready for access.
                     showToast("Media file list synchronized.", getApplicationContext());
                     // Optionally, refresh your UI component that displays the media file list.
-                });
-                runOnUiThread(() -> {
-                    mProgressBar.setVisibility(View.INVISIBLE);
-                    tvLoadingProgressBar.setVisibility(View.INVISIBLE);
                 });
                 continueToSetCameraMode();
                 break;
@@ -573,9 +574,7 @@ public class ClassificationActivity extends AppCompatActivity {
     private void initiateScanning(String userID, List<String> batches) {
         Executor executor = Executors.newSingleThreadExecutor();
         Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(() -> {
-            setScreenTouchable(false);
-        });
+        handler.post(() -> setScreenTouchable(false));
         executor.execute(() -> {
             HttpURLConnection urlConnection = null;
             try {
@@ -604,21 +603,21 @@ public class ClassificationActivity extends AppCompatActivity {
 
                 handler.post(() -> {
                     if (responseCode == HttpURLConnection.HTTP_OK) {
-                        Toast.makeText(ClassificationActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ScanActivity.this, "Scanning initiated successfully!", Toast.LENGTH_SHORT).show();
                         updateURL();
                         buildLogBatch();
                         fetchClassificationCounts();
                         selectedBatches.clear();
 
                     } else {
-                        Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ScanActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
                     setScreenTouchable(true);
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Scan initiation failed: ", e);
                 handler.post(() -> {
-                    Toast.makeText(ClassificationActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ScanActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     setScreenTouchable(true);
                 });
             } finally {
@@ -1009,11 +1008,11 @@ public class ClassificationActivity extends AppCompatActivity {
         }
     };
     public void setScreenTouchable(boolean touchable) {
-        FrameLayout overlay = findViewById(R.id.overlay);
+        FrameLayout dontTouchOverlay = findViewById(R.id.dontTouchOverlay);
         if (touchable) {
-            overlay.setVisibility(View.GONE); // Hide overlay to enable touch events
+            dontTouchOverlay.setVisibility(View.GONE); // Hide overlay to enable touch events
         } else {
-            overlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
+            dontTouchOverlay.setVisibility(View.VISIBLE); // Show overlay to disable touch events
         }
     }
 
@@ -1111,7 +1110,7 @@ public class ClassificationActivity extends AppCompatActivity {
             if (checkedItem >= 0) {  // Ensure an item is actually selected
                 batchId = classifiedBatchNames.get(checkedItem);
                 Toast.makeText(this, "You selected: " + batchId, Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(ClassificationActivity.this, GalleryActivity.class);
+                Intent intent = new Intent(ScanActivity.this, GalleryActivity.class);
                 intent.putExtra("batchId", batchId);
                 startActivity(intent);
                 finish();
@@ -1153,7 +1152,11 @@ public class ClassificationActivity extends AppCompatActivity {
         filter.addAction(ACTION_STOP_LOADING_PER_IMAGE);
         filter.addAction(ACTION_PROGRESS_UPDATE_PER_IMAGE);
         filter.addAction(ACTION_PROGRESS_UPDATE);
-        registerReceiver(fromUploadServiceReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(fromUploadServiceReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(fromUploadServiceReceiver, filter);
+        }
     }
 
     @Override
