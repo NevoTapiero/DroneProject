@@ -1,11 +1,17 @@
 package com.dji.ImportSDKDemo.Services;
 
+import static com.dji.ImportSDKDemo.ApplicationState.isAppStarted;
+import static com.dji.ImportSDKDemo.Receivers.OnDJIUSBAttachedReceiver.USB_ACCESSORY_ATTACHED;
+
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -14,7 +20,6 @@ import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
-import com.dji.ImportSDKDemo.ApplicationState;
 import com.dji.ImportSDKDemo.R;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,11 +43,15 @@ public class DJISDKService extends Service {
     public static final String REGISTERED = "com.dji.ImportSDKDemo.action.REGISTERED";
 
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     public void onCreate() {
         super.onCreate();
-        ApplicationState.isAppStarted = true;
 
+        IntentFilter filter = new IntentFilter(USB_ACCESSORY_ATTACHED);
+        registerReceiver(usbAttachedReceiver, filter);
+
+        isAppStarted = true;
         //Use of notificationManager in API level 23 and above
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             notificationManager = getSystemService(NotificationManager.class);
@@ -55,9 +64,20 @@ public class DJISDKService extends Service {
 
         updateNotification();
 
-
         startSDKRegistration();
+    }
+    private final BroadcastReceiver usbAttachedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (USB_ACCESSORY_ATTACHED.equals(intent.getAction())) {
+                // Handle the USB accessory attached event
+                handleUsbAccessoryAttached();
+            }
+        }
+    };
 
+    private void handleUsbAccessoryAttached() {
+        startSDKRegistration();
     }
 
 
@@ -187,6 +207,7 @@ public class DJISDKService extends Service {
     public void onDestroy() {
         DJISDKManager.getInstance().stopConnectionToProduct();
         super.onDestroy();
+        unregisterReceiver(usbAttachedReceiver);
         stopForeground(true);
     }
 }

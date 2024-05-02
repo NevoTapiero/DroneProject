@@ -1,5 +1,7 @@
 package com.dji.ImportSDKDemo.NavigationBarActivities;
 
+import static com.dji.ImportSDKDemo.ShowToast.showToast;
+
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -43,7 +45,7 @@ public class GalleryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_library);
 
-        selectedBatch = findViewById(R.id.selectedBatch);
+        initUI();
 
         // Get the Intent that started this activity
         Intent intent = getIntent();
@@ -54,7 +56,10 @@ public class GalleryActivity extends AppCompatActivity {
             selectedBatch.setText("Selected Batch: " + batchId);
 
         }
+    }
 
+    private void initUI() {
+        selectedBatch = findViewById(R.id.selectedBatch);
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.nav_gallery);
 
@@ -95,13 +100,12 @@ public class GalleryActivity extends AppCompatActivity {
         setupCategoryButton(btnNorthernLeafBlight, "Corn_northern_leaf_blight/");
         setupCategoryButton(btnGrayLeafSpots, "Corn_gray_leaf_spots/");
         setupCategoryButton(btnUnclassified, "unclassified/");
-
     }
 
     private void setupCategoryButton(Button button, String category) {
         button.setOnClickListener(v -> {
             if (batchId == null) {
-                showToast();
+                showToast("Please select a batch first", this);
             } else {
                 navigateToCustomActivity(category);
             }
@@ -185,6 +189,7 @@ public class GalleryActivity extends AppCompatActivity {
 
         // Set a dismiss listener to handle cases where the dialog is dismissed by pressing outside
         builder.setOnCancelListener(dialog -> {
+            showToast("dismiss", getApplicationContext());
             Toast.makeText(this, "dismiss", Toast.LENGTH_SHORT).show();
             selectedBatch.setText("Batch");
             batchNames.clear();
@@ -193,10 +198,6 @@ public class GalleryActivity extends AppCompatActivity {
 
         AlertDialog dialog = builder.create();
         dialog.show();
-    }
-
-    private void showToast() {
-        Toast.makeText(this, "Please select a batch first", Toast.LENGTH_SHORT).show();
     }
 
     private void navigateToCustomActivity(String category) {

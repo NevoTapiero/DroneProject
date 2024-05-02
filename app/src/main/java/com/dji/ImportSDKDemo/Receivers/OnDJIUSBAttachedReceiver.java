@@ -13,6 +13,8 @@ import com.dji.ImportSDKDemo.PermissionActivity;
 
 // OnDJIUSBAttachedReceiver: BroadcastReceiver that handles the USB accessory attached event for DJI devices.
 public class OnDJIUSBAttachedReceiver extends BroadcastReceiver {
+    public static final String USB_ACCESSORY_ATTACHED = "com.dji.ImportSDKDemo.action.USB_ACCESSORY_ATTACHED";
+
 
     // onReceive: Called when the BroadcastReceiver is receiving an Intent broadcast.
     @Override
@@ -22,6 +24,10 @@ public class OnDJIUSBAttachedReceiver extends BroadcastReceiver {
                 Intent newIntent = new Intent(context, PermissionActivity.class);
                 newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(newIntent);
+            }else {
+                Intent attachedIntent = new Intent();
+                attachedIntent.setAction(USB_ACCESSORY_ATTACHED);
+                context.sendBroadcast(attachedIntent);
             }
         }
     }

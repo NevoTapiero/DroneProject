@@ -46,7 +46,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -106,23 +105,15 @@ public class ClassificationActivity extends AppCompatActivity {
     private TextView tvLoadingProgressBar;
     private static final String TAG = "ClassificationActivity";
     private ActivityResultLauncher<Intent> imagePickerLauncher;
-    private final List<String> selectedBatches = new ArrayList<>();
-    private String batchId;
-    private String batchTimeStamp;
-    private final List<String> categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
+    private final List<String> selectedBatches = new ArrayList<>(), categories = new ArrayList<>(Arrays.asList("Corn_common_rust", "Corn_healthy", "Corn_Infected", "Corn_northern_leaf_blight", "Corn_gray_leaf_spots", "unclassified"));
+    private String batchId, batchTimeStamp;
     private StringBuilder logBatch = new StringBuilder();
-    Boolean fromOnDestroy = false;
+    private boolean fromOnDestroy = false;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
-    ProgressBar mProgressBar;
     private MediaManager mMediaManager;
     private FileListAdapter mListAdapter;
-    private Button scanButton;
-    private Button fetchAndUploadButton;
-    private ConstraintLayout buttonScanPanel;
-    private ConstraintLayout buttonUploadPanel;
     private final List<MediaFile> mediaFileList = new ArrayList<>();
-    private ProgressBar progressBar;
-    private ProgressBar progressBarPerImage;
+    private ProgressBar progressBar, mProgressBar, progressBarPerImage;
     private RecyclerView rvLogEntry;
     private final FirebaseAuth mAuth = FirebaseAuth.getInstance();
     private final FirebaseUser user = mAuth.getCurrentUser();
@@ -134,8 +125,8 @@ public class ClassificationActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_classification);
 
-        progressBar = findViewById(R.id.downloadProgressBar);
-        progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
+        initUI();
+        initMediaManager();
 
 
         // Initialize fusedLocationClient and other components
@@ -144,12 +135,6 @@ public class ClassificationActivity extends AppCompatActivity {
                 handleImageSelection(result.getData());
             }
         });
-
-
-        //-------------------------------------------------------- Initializing MediaManager:
-
-        initMediaManager();
-        initializeUIComponents();
 
     }
 
@@ -162,10 +147,12 @@ public class ClassificationActivity extends AppCompatActivity {
 
 
 
-    private void initializeUIComponents() {
-        buttonUploadPanel = findViewById(R.id.buttonUploadPanel);
+    private void initUI() {
+        progressBar = findViewById(R.id.downloadProgressBar);
+        progressBarPerImage = findViewById(R.id.downloadPerImageProgressBar);
+        mProgressBar = findViewById(R.id.loadingProgressBar);
+        tvLoadingProgressBar = findViewById(R.id.progressBarText);
 
-        buttonScanPanel = findViewById(R.id.buttonScanPanel);
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.nav_scan);
 
@@ -195,32 +182,34 @@ public class ClassificationActivity extends AppCompatActivity {
         /*Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
         checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
 
-        scanButton = findViewById(R.id.scanButton);
+        Button scanButton = findViewById(R.id.scanButton);
         scanButton.setOnClickListener(v -> {
-            scanButton.setSelected(true);
-            buttonScanPanel.setEnabled(false);
             if (selectedBatches.isEmpty()) {
                 showToast("Please select at least one batch to scan", getApplicationContext());
-                scanButton.setSelected(false);
-                buttonScanPanel.setEnabled(true);
             }else {
                 Toast.makeText(this, selectedBatches.toString(), Toast.LENGTH_SHORT).show();
                 initiateScanning(user.getUid(), selectedBatches);
             }
         });
 
-        fetchAndUploadButton = findViewById(R.id.upload_btn_firebase);
+        Button fetchAndUploadButton = findViewById(R.id.upload_btn_firebase);
 
         fetchAndUploadButton.setOnClickListener(v ->{
-            fetchAndUploadButton.setSelected(true);
-            buttonUploadPanel.setEnabled(false);
             if (!mediaFileList.isEmpty()){
                 askForBatchNameDrone(this);
             }else {
                 showToast("Drone Disconnected, please reconnect the drone and try again", getApplicationContext());
-                buttonUploadPanel.setEnabled(true);
             }
         });
+
+        if (CameraHandler.getProductInstance() != null) {
+            mProgressBar.setVisibility(View.VISIBLE);
+            tvLoadingProgressBar.setText(R.string.drone_connected);
+            fetchAndUploadButton.setEnabled(true);
+        }else {
+            tvLoadingProgressBar.setText(R.string.drone_disconnected);
+            fetchAndUploadButton.setEnabled(false);
+        }
 
         Button selectBatchesButton = findViewById(R.id.selectBatchesButton);
         selectBatchesButton.setOnClickListener(v -> loadBatches());
@@ -263,18 +252,6 @@ public class ClassificationActivity extends AppCompatActivity {
             }
         });
 
-        mProgressBar = findViewById(R.id.loadingProgressBar);
-
-        tvLoadingProgressBar = findViewById(R.id.progressBarText);
-
-        if (CameraHandler.getProductInstance() != null) {
-            mProgressBar.setVisibility(View.VISIBLE);
-            tvLoadingProgressBar.setText(R.string.drone_connected);
-            fetchAndUploadButton.setEnabled(true);
-        }else {
-            tvLoadingProgressBar.setText(R.string.drone_disconnected);
-            fetchAndUploadButton.setEnabled(false);
-        }
 
     }
 
@@ -596,7 +573,9 @@ public class ClassificationActivity extends AppCompatActivity {
     private void initiateScanning(String userID, List<String> batches) {
         Executor executor = Executors.newSingleThreadExecutor();
         Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(() -> showLoading(false));
+        handler.post(() -> {
+            setScreenTouchable(false);
+        });
         executor.execute(() -> {
             HttpURLConnection urlConnection = null;
             try {
@@ -630,19 +609,17 @@ public class ClassificationActivity extends AppCompatActivity {
                         buildLogBatch();
                         fetchClassificationCounts();
                         selectedBatches.clear();
-                        scanButton.setSelected(false);
-                        buttonScanPanel.setEnabled(true);
 
                     } else {
                         Toast.makeText(ClassificationActivity.this, "Error initiating scanning: " + responseCode, Toast.LENGTH_SHORT).show();
                     }
-                    hideLoading();  // Ensure hiding loading indicator on both success and failure
+                    setScreenTouchable(true);
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Scan initiation failed: ", e);
                 handler.post(() -> {
                     Toast.makeText(ClassificationActivity.this, "Exception: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    hideLoading();  // Ensure hiding loading indicator on exception as well
+                    setScreenTouchable(true);
                 });
             } finally {
                 if (urlConnection != null) {
@@ -964,14 +941,6 @@ public class ClassificationActivity extends AppCompatActivity {
     }
 
 
-
-
-
-
-
-
-
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -1003,7 +972,8 @@ public class ClassificationActivity extends AppCompatActivity {
             if (intent.getAction() != null) {
                 switch (intent.getAction()) {
                     case ACTION_START_LOADING:
-                        showLoading(true);
+                        progressBar.setVisibility(View.VISIBLE);
+                        setScreenTouchable(false);
                         break;
                     case ACTION_STOP_LOADING:
                         String messageSTOP_LOADING = intent.getStringExtra("message");
@@ -1011,18 +981,17 @@ public class ClassificationActivity extends AppCompatActivity {
                         selectedBatches.clear();
                         selectedBatches.add(intent.getStringExtra("batchID"));
                         buildLogBatch();
-                        fetchAndUploadButton.setSelected(false);
-                        buttonUploadPanel.setEnabled(true);
                         updateImageCountUI(imageCount);
                         Toast.makeText(context, messageSTOP_LOADING, Toast.LENGTH_SHORT).show();
-                        hideLoading();
+                        progressBar.setVisibility(View.INVISIBLE);
+                        setScreenTouchable(true);
                         initMediaManager();
                         break;
                     case ACTION_START_LOADING_PER_IMAGE:
-                        showLoadingPerImage();
+                        progressBarPerImage.setVisibility(View.VISIBLE);
                         break;
                     case ACTION_STOP_LOADING_PER_IMAGE:
-                        hideLoadingPerImage();
+                        progressBarPerImage.setVisibility(View.INVISIBLE);
                         break;
                     case ACTION_NOTIFY_TRIES:
                         String messageNOTIFY_TRIES = intent.getStringExtra("message");
@@ -1039,28 +1008,6 @@ public class ClassificationActivity extends AppCompatActivity {
             }
         }
     };
-
-
-    private void showLoading(boolean showBar) {
-        if (showBar) {
-            progressBar.setVisibility(View.VISIBLE);
-        }
-        setScreenTouchable(false);
-    }
-
-    private void hideLoading() {
-        progressBar.setVisibility(View.INVISIBLE);
-        setScreenTouchable(true);
-    }
-
-    private void showLoadingPerImage() {
-        progressBarPerImage.setVisibility(View.VISIBLE);
-    }
-
-    private void hideLoadingPerImage() {
-        progressBarPerImage.setVisibility(View.INVISIBLE);
-    }
-
     public void setScreenTouchable(boolean touchable) {
         FrameLayout overlay = findViewById(R.id.overlay);
         if (touchable) {

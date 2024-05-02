@@ -26,7 +26,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.dji.ImportSDKDemo.CameraHandler;
 import com.dji.ImportSDKDemo.GoFlyActivity;
@@ -42,9 +41,7 @@ import dji.sdk.useraccount.UserAccountManager;
 
 
 public class FlyActivity extends AppCompatActivity implements View.OnClickListener {
-    private ConstraintLayout buttonPanel;
     private static final String TAG = FlyActivity.class.getName();
-    private boolean isSDKRegistered = false; //a boolean flag to track SDK registration status
     protected Button loginBtn, logoutBtn, mBtnOpen;
     protected TextView mTextConnectionStatus, mTextProduct;
     private EditText bridgeModeEditText;
@@ -55,14 +52,11 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        setContentView(R.layout.activity_fly);
+        initUI();
 
         //Initialize DJI SDK Manager
         new Handler(Looper.getMainLooper());
-
-        setContentView(R.layout.activity_fly);
-
-        initUI();
 
     }
 
@@ -99,15 +93,13 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
         TextView mVersionTv = findViewById(R.id.tv_version);
         mVersionTv.setText(getResources().getString(R.string.sdk_version, DJISDKManager.getInstance().getSDKVersion()));
 
-        buttonPanel = findViewById(R.id.buttonPanel);
-
        /* Button checkCameraModeBtn = findViewById(R.id.btnCheckMode);
         checkCameraModeBtn.setOnClickListener(v -> checkCameraMode());*/
 
 
         mBtnOpen = findViewById(R.id.btn_open);
         mBtnOpen.setOnClickListener(this);
-        mBtnOpen.setEnabled(false);
+        mBtnOpen.setEnabled(CameraHandler.getProductInstance() != null);
 
         bridgeModeEditText = findViewById(R.id.edittext_bridge_ip);
         SharedPreferences sharedPreferences = this.getSharedPreferences("NPreference", Context.MODE_PRIVATE);
@@ -153,13 +145,8 @@ public class FlyActivity extends AppCompatActivity implements View.OnClickListen
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.btn_open) {
-            mBtnOpen.setSelected(true);
-            buttonPanel.setEnabled(false);
             Intent intent = new Intent(this, GoFlyActivity.class);
             startActivity(intent);
-            mBtnOpen.setSelected(false);
-            buttonPanel.setEnabled(true);
-
         }
     }
 
